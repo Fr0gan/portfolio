@@ -1,1 +1,33 @@
+/* Mobile-first styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 1rem;
+  background-color: #f8f8f8;
+  color: #333;
+}
+
+header, section, footer {
+  margin-bottom: 2rem;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+#experience, #achievements {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 2rem 4rem;
+  }
+
+  #experience, #achievements {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 
