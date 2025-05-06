@@ -1,33 +1,116 @@
-/* Mobile-first styles */
-body {
-  font-family: Arial, sans-serif;
+/* General Reset & Base Styles */
+* {
+  box-sizing: border-box;
   margin: 0;
-  padding: 1rem;
-  background-color: #f8f8f8;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  background-color: #cceeff; /* baby blue background */
   color: #333;
+  padding: 20px;
 }
 
-header, section, footer {
-  margin-bottom: 2rem;
+header, footer {
+  text-align: center;
+  padding: 20px 0;
+  background-color: #333;
+  color: white;
 }
 
-img {
-  max-width: 100%;
+h1, h2, h3 {
+  color: #222;
+}
+
+main {
+  max-width: 1000px;
+  margin: auto;
+}
+
+/* Section Titles & Containers */
+section {
+  margin-bottom: 40px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Experience & Achievements */
+.experience-item,
+.achievement-item {
+  margin-bottom: 30px;
+}
+
+.experience-item img,
+.achievement-item img {
+  width: 100%;
+  max-width: 500px;
   height: auto;
-}
-#experience, #achievements {
-  display: grid;
-  gap: 1rem;
+  border-radius: 5px;
+  margin: 10px 0;
 }
 
-@media (min-width: 768px) {
-  body {
-    padding: 2rem 4rem;
+/* Interests Section */
+#interests ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-around;
+  padding: 0;
+}
+
+#interests li {
+  flex: 1 1 200px;
+  text-align: center;
+}
+
+#interests img {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+/* Game Section */
+#game img {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+  display: block;
+  margin: 10px auto;
+}
+
+/* Links */
+a {
+  color: #007BFF;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Footer */
+footer {
+  font-size: 0.9em;
+  margin-top: 40px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  #interests ul {
+    flex-direction: column;
+    align-items: center;
   }
 
-  #experience, #achievements {
-    grid-template-columns: repeat(2, 1fr);
+  .experience-item img,
+  .achievement-item img,
+  #game img {
+    max-width: 100%;
   }
 }
-
-
