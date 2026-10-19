@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speed Typer | Logan Loftus</title>
+  <meta name="description" content="A typing speed test with live WPM, accuracy and personal bests." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌨️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../projects.css" />
+  <style>
+    :root { --accent: var(--cyan); --line: 2.6rem; }
+
+    .typing {
+      position: relative;
+      padding: 28px 28px 24px;
+      cursor: text;
+    }
+    .typing.is-focused { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+    .viewport {
+      position: relative;
+      height: calc(var(--line) * 3);
+      overflow: hidden;
+    }
+    .words {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 0.65em;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: clamp(1.15rem, 2.8vw, 1.55rem);
+      line-height: var(--line);
+      color: #5d6390;
+      transition: transform 0.2s var(--ease-out);
+    }
+    .typing:not(.is-focused) .words { filter: blur(4px); opacity: 0.5; }
+    .word { position: relative; display: inline-block; white-space: nowrap; }
+    .word.is-error { text-decoration: underline wavy var(--red) 2px; text-underline-offset: 6px; }
+    .ch.is-correct { color: var(--text); }
+    .ch.is-incorrect { color: var(--red); }
+    .ch.is-extra { color: #b8364f; }
+
+    .caret {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 1.3em;
+      margin-top: calc((var(--line) - 1.3em) / 2);
+      border-radius: 2px;
+      background: var(--accent);
+      transition: left 0.08s linear, top 0.1s linear;
+      animation: blink 1s steps(1) infinite;
+    }
+    .typing.is-typing .caret { animation: none; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .typing__input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: text;
+    }
+    .typing__overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .typing.is-focused .typing__overlay { display: none; }
+
+    .results {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 28px;
+      margin-top: 18px;
+      animation: rise 0.4s var(--ease-out);
+    }
+    .results[hidden] { display: none; }
+    @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+    .results__wpm {
+      color: var(--accent);
+      font-family: var(--font-head);
+      font-size: clamp(3.5rem, 10vw, 5.5rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .results__wpm small { display: block; color: var(--muted); font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.1em; }
+    .results__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+    .results__badge { color: var(--yellow); font-family: var(--font-pixel); font-size: 0.65rem; }
+
+    @media (max-width: 600px) {
+      .typing { padding: 20px 16px; }
+      .results { grid-template-columns: 1fr; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html#projects">← Back to portfolio</a>
+    <span class="topbar__title">SPEED TYPER</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Speed Typer</h1>
+      <p>Type the words as fast and accurately as you can. The timer starts on your first keystroke. Press <kbd class="kbd">Tab</kbd> any time to restart.</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="segmented" role="group" aria-label="Test length">
+        <button type="button" data-seconds="15" aria-pressed="false">15s</button>
+        <button type="button" data-seconds="30" aria-pressed="true">30s</button>
+        <button type="button" data-seconds="60" aria-pressed="false">60s</button>
+      </div>
+      <span class="toolbar__spacer"></span>
+      <button type="button" class="btn" id="restart">↻ Restart</button>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat__label">Time left</span><span class="stat__value" id="time">30</span></div>
+      <div class="stat"><span class="stat__label">WPM</span><span class="stat__value" id="wpm">0</span></div>
+      <div class="stat"><span class="stat__label">Accuracy</span><span class="stat__value" id="acc">100%</span></div>
+      <div class="stat"><span class="stat__label">Best WPM</span><span class="stat__value" id="best">—</span></div>
+    </div>
+
+    <div class="typing panel" id="typing">
+      <div class="viewport">
+        <div class="words" id="words"><span class="caret" id="caret"></span></div>
+      </div>
+      <input class="typing__input" id="input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type the words shown" />
+      <div class="typing__overlay" aria-hidden="true">Click here (or press any key) to start typing</div>
+    </div>
+
+    <section class="results panel" id="results" hidden aria-live="polite">
+      <div class="results__wpm"><span id="r-wpm">0</span><small>WPM</small></div>
+      <div>
+        <p class="results__badge" id="r-badge"></p>
+        <div class="results__grid">
+          <div class="stat"><span class="stat__label">Accuracy</span><span class="stat__value" id="r-acc">0%</span></div>
+          <div class="stat"><span class="stat__label">Correct words</span><span class="stat__value" id="r-words">0</span></div>
+          <div class="stat"><span class="stat__label">Mistakes</span><span class="stat__value" id="r-miss">0</span></div>
+          <div class="stat"><span class="stat__label">Characters</span><span class="stat__value" id="r-chars">0</span></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footnote">Built with plain JavaScript and a hidden input, so it works with phone keyboards too. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/typing-test" target="_blank" rel="noopener">View source</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const WORDS = `the be to of and a in that have it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us game code play level score pixel player jump shoot blob slime sword card deck trail mountain river forest samurai honor quick brown fox lazy dog web page build bug fix loop array string number function object class style color design debug script canvas mouse key press start pause reset win lose boss quest coin power health speed light dark night sun moon star fire water earth wind stone path hike map camp tent friend team world place great small large long little old right left high low big next early young important few public bad same able`.split(' ');
+    const BEST_KEY = 'speed-typer-best';
+    const store = {
+      get(key) { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } },
+      set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+
+    const typingEl = document.getElementById('typing');
+    const wordsEl = document.getElementById('words');
+    const caret = document.getElementById('caret');
+    const input = document.getElementById('input');
+    const timeEl = document.getElementById('time');
+    const wpmEl = document.getElementById('wpm');
+    const accEl = document.getElementById('acc');
+    const bestEl = document.getElementById('best');
+    const results = document.getElementById('results');
+    const lengthButtons = document.querySelectorAll('[data-seconds]');
+
+    let duration = 30;
+    let words = [];
+    let wordEls = [];
+    let index = 0;
+    let typed = '';
+    let committed = [];
+    let keystrokes = 0;
+    let correctKeystrokes = 0;
+    let startTime = 0;
+    let tickTimer = 0;
+    let finished = false;
+    let scrollOffset = 0;
+
+    const randomWord = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+
+    function addWords(count) {
+      for (let i = 0; i < count; i++) {
+        const word = randomWord();
+        words.push(word);
+        const el = document.createElement('span');
+        el.className = 'word';
+        el.innerHTML = [...word].map((c) => `<span class="ch">${c}</span>`).join('');
+        wordsEl.appendChild(el);
+        wordEls.push(el);
+      }
+    }
+
+    function reset() {
+      clearInterval(tickTimer);
+      words = [];
+      wordEls = [];
+      index = 0;
+      typed = '';
+      committed = [];
+      keystrokes = 0;
+      correctKeystrokes = 0;
+      startTime = 0;
+      finished = false;
+      scrollOffset = 0;
+      input.value = '';
+      input.disabled = false;
+      wordsEl.innerHTML = '';
+      wordsEl.appendChild(caret);
+      wordsEl.style.transform = '';
+      typingEl.classList.remove('is-typing');
+      results.hidden = true;
+      addWords(80);
+      timeEl.textContent = duration;
+      wpmEl.textContent = '0';
+      accEl.textContent = '100%';
+      const best = store.get(BEST_KEY)[duration];
+      bestEl.textContent = best ? best : '—';
+      renderWord();
+      input.focus({ preventScroll: true });
+    }
+
+    function renderWord() {
+      const el = wordEls[index];
+      const target = words[index];
+      el.querySelectorAll('.is-extra').forEach((x) => x.remove());
+      const letters = el.querySelectorAll('.ch');
+      letters.forEach((letter, i) => {
+        letter.classList.remove('is-correct', 'is-incorrect');
+        if (i < typed.length) letter.classList.add(typed[i] === target[i] ? 'is-correct' : 'is-incorrect');
+      });
+      for (let i = target.length; i < Math.min(typed.length, target.length + 8); i++) {
+        const extra = document.createElement('span');
+        extra.className = 'ch is-extra';
+        extra.textContent = typed[i];
+        el.appendChild(extra);
+      }
+      placeCaret();
+    }
+
+    function placeCaret() {
+      const el = wordEls[index];
+      const letters = el.querySelectorAll('.ch');
+      let left;
+      if (typed.length < letters.length) {
+        left = el.offsetLeft + letters[typed.length].offsetLeft;
+      } else {
+        const lastLetter = letters[letters.length - 1];
+        left = el.offsetLeft + lastLetter.offsetLeft + lastLetter.offsetWidth;
+      }
+      caret.style.left = `${left}px`;
+      caret.style.top = `${el.offsetTop}px`;
+
+      // Keep the active word on the first or second visible line
+      const lineHeight = el.offsetHeight;
+      if (el.offsetTop - scrollOffset >= lineHeight * 2 - 2) {
+        scrollOffset = el.offsetTop - lineHeight;
+        wordsEl.style.transform = `translateY(${-scrollOffset}px)`;
+      }
+    }
+
+    function correctChars() {
+      let chars = 0;
+      committed.forEach((entry, i) => {
+        if (entry === words[i]) chars += words[i].length + 1;
+      });
+      if (words[index].startsWith(typed)) chars += typed.length;
+      return chars;
+    }
+
+    function liveStats() {
+      const minutes = (performance.now() - startTime) / 60000;
+      const wpm = minutes > 0 ? Math.round(correctChars() / 5 / minutes) : 0;
+      const accuracy = keystrokes ? Math.round((correctKeystrokes / keystrokes) * 100) : 100;
+      return { wpm, accuracy };
+    }
+
+    function tick() {
+      const elapsed = (performance.now() - startTime) / 1000;
+      const left = Math.max(0, Math.ceil(duration - elapsed));
+      timeEl.textContent = left;
+      const { wpm, accuracy } = liveStats();
+      wpmEl.textContent = wpm;
+      accEl.textContent = `${accuracy}%`;
+      if (elapsed >= duration) finish();
+    }
+
+    function finish() {
+      clearInterval(tickTimer);
+      finished = true;
+      input.disabled = true;
+      typingEl.classList.remove('is-typing');
+      const minutes = duration / 60;
+      const wpm = Math.round(correctChars() / 5 / minutes);
+      const accuracy = keystrokes ? Math.round((correctKeystrokes / keystrokes) * 100) : 0;
+      const correctWords = committed.filter((entry, i) => entry === words[i]).length;
+      const allBest = store.get(BEST_KEY);
+      const isBest = wpm > (allBest[duration] || 0);
+      if (isBest) {
+        allBest[duration] = wpm;
+        store.set(BEST_KEY, allBest);
+      }
+
+      timeEl.textContent = '0';
+      wpmEl.textContent = wpm;
+      accEl.textContent = `${accuracy}%`;
+      bestEl.textContent = allBest[duration] || '—';
+      document.getElementById('r-wpm').textContent = wpm;
+      document.getElementById('r-acc').textContent = `${accuracy}%`;
+      document.getElementById('r-words').textContent = correctWords;
+      document.getElementById('r-miss').textContent = keystrokes - correctKeystrokes;
+      document.getElementById('r-chars').textContent = keystrokes;
+      document.getElementById('r-badge').textContent = isBest && wpm > 0 ? 'NEW PERSONAL BEST!' : `${duration}-SECOND TEST`;
+      results.hidden = false;
+      document.getElementById('restart').focus({ preventScroll: true });
+    }
+
+    function commitWord() {
+      if (!typed) return;
+      const el = wordEls[index];
+      committed.push(typed);
+      el.classList.toggle('is-error', typed !== words[index]);
+      index += 1;
+      typed = '';
+      if (index > words.length - 30) addWords(40);
+      renderWord();
+    }
+
+    input.addEventListener('input', (e) => {
+      if (finished) return;
+      if (!startTime) {
+        startTime = performance.now();
+        tickTimer = setInterval(tick, 200);
+        typingEl.classList.add('is-typing');
+      }
+
+      const value = input.value;
+      const parts = value.split(' ');
+      // Count each newly typed character as a keystroke
+      if (e.inputType && e.inputType.startsWith('insert') && value.length > typed.length) {
+        const added = value.slice(typed.length);
+        [...added].forEach((char, i) => {
+          keystrokes += 1;
+          const position = typed.length + i;
+          const expected = position < words[index].length ? words[index][position] : ' ';
+          if (char === expected) correctKeystrokes += 1;
+        });
+      }
+
+      if (parts.length > 1) {
+        typed = parts[0];
+        commitWord();
+        // Anything typed after the space starts the next word
+        typed = parts.slice(1).join('').replace(/ /g, '');
+        input.value = typed;
+        renderWord();
+      } else {
+        typed = value;
+        renderWord();
+      }
+    });
+
+    input.addEventListener('focus', () => typingEl.classList.add('is-focused'));
+    input.addEventListener('blur', () => typingEl.classList.remove('is-focused'));
+
+    document.addEventListener('keydown', (e) => {
+      // Tab restarts while typing; Shift+Tab still moves focus normally
+      if (e.key === 'Tab' && !e.shiftKey && (document.activeElement === input || finished)) {
+        e.preventDefault();
+        reset();
+        return;
+      }
+      // Any printable key focuses the test, so you can just start typing
+      if (document.activeElement !== input && !finished && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.target.closest && e.target.closest('button, a')) return;
+        input.focus({ preventScroll: true });
+      }
+    });
+
+    lengthButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        duration = Number(button.dataset.seconds);
+        lengthButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        reset();
+      });
+    });
+    document.getElementById('restart').addEventListener('click', reset);
+    window.addEventListener('resize', () => { if (wordEls.length) placeCaret(); });
+    document.fonts?.ready.then(() => { if (wordEls.length) placeCaret(); });
+
+    reset();
+  })();
+  </script>
+</body>
+</html>

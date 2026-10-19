@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Studio | Logan Loftus</title>
+  <meta name="description" content="A tiny pixel-art editor with pencil, fill, mirror mode, undo/redo and PNG export." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Press+Start+2P&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../projects.css" />
+  <style>
+    :root { --accent: var(--yellow); }
+
+    .studio {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      align-items: start;
+      gap: 18px;
+    }
+    .canvas-wrap { display: grid; place-items: center; padding: 16px; }
+    #art {
+      width: 100%;
+      max-width: 580px;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      image-rendering: pixelated;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .sidebar { display: grid; gap: 14px; }
+    .side-title {
+      margin-bottom: 12px;
+      color: var(--accent);
+      font-family: var(--font-pixel);
+      font-size: 0.6rem;
+      font-weight: 400;
+    }
+
+    .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .tool {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .tool:hover { border-color: var(--border-strong); }
+    .tool[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); }
+    .tool kbd { margin-left: auto; color: var(--muted); font-family: var(--font-body); font-size: 0.72rem; }
+
+    .options { display: grid; gap: 10px; margin-top: 14px; }
+    .check { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 0.92rem; cursor: pointer; }
+    .check kbd { margin-left: auto; color: var(--muted); font-family: var(--font-body); font-size: 0.72rem; }
+
+    .palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+    .swatch {
+      aspect-ratio: 1;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .swatch:hover { transform: scale(1.1); }
+    .swatch[aria-checked="true"] { border-color: #fff; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px #fff; }
+    .current { display: flex; align-items: center; gap: 12px; margin-top: 14px; color: var(--muted); font-size: 0.92rem; }
+    .current input[type="color"] {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 2px solid var(--border-strong);
+      border-radius: 10px;
+      background: none;
+      cursor: pointer;
+    }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .actions .btn--primary { grid-column: 1 / -1; }
+
+    @media (max-width: 860px) {
+      .studio { grid-template-columns: 1fr; }
+      .canvas-wrap { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html#projects">← Back to portfolio</a>
+    <span class="topbar__title">PIXEL STUDIO</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Pixel Studio</h1>
+      <p>A tiny pixel-art editor. It starts with my blob already drawn. Remix it or clear it and draw your own, then download your art as a PNG. Your drawing is saved in this browser automatically.</p>
+    </div>
+
+    <div class="studio">
+      <div class="panel canvas-wrap">
+        <canvas id="art" aria-label="Pixel art canvas. Left click or touch to draw, right click to erase."></canvas>
+      </div>
+
+      <aside class="sidebar">
+        <section class="panel">
+          <h2 class="side-title">TOOLS</h2>
+          <div class="tools" role="group" aria-label="Tools">
+            <button type="button" class="tool" data-tool="pencil" aria-pressed="true"><span aria-hidden="true">✏️</span>Pencil<kbd>B</kbd></button>
+            <button type="button" class="tool" data-tool="eraser" aria-pressed="false"><span aria-hidden="true">🧽</span>Eraser<kbd>E</kbd></button>
+            <button type="button" class="tool" data-tool="fill" aria-pressed="false"><span aria-hidden="true">🪣</span>Fill<kbd>F</kbd></button>
+            <button type="button" class="tool" data-tool="picker" aria-pressed="false"><span aria-hidden="true">💧</span>Picker<kbd>I</kbd></button>
+          </div>
+          <div class="options">
+            <label class="check"><input type="checkbox" id="mirror" /> Mirror drawing <kbd>M</kbd></label>
+            <label class="check"><input type="checkbox" id="grid" checked /> Show grid <kbd>G</kbd></label>
+            <label class="field">Canvas
+              <select class="select" id="size">
+                <option value="16">16 × 16</option>
+                <option value="32">32 × 32</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="side-title">PALETTE</h2>
+          <div class="palette" id="palette" role="radiogroup" aria-label="Colors"></div>
+          <label class="current"><input type="color" id="custom" value="#2f4dff" /> Custom color</label>
+        </section>
+
+        <section class="panel actions">
+          <button type="button" class="btn" id="undo" disabled>↶ Undo</button>
+          <button type="button" class="btn" id="redo" disabled>↷ Redo</button>
+          <button type="button" class="btn" id="clear">Clear</button>
+          <button type="button" class="btn" id="blob">Load blob</button>
+          <button type="button" class="btn btn--primary" id="download">⬇ Download PNG</button>
+        </section>
+      </aside>
+    </div>
+
+    <p class="footnote">Built with the Canvas API: flood fill, Bresenham lines and an undo stack in plain JavaScript. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/pixel-studio" target="_blank" rel="noopener">View source</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const PALETTE = [
+      '#0b0b14', '#1d2b53', '#2f4dff', '#29adff', '#00e5ff', '#3dff8b', '#008751', '#ffe14d',
+      '#ffa300', '#ff4d6d', '#ff3ec8', '#7e2553', '#ab5236', '#c2c3c7', '#ffccaa', '#ffffff',
+    ];
+    const BLOB_ART = [
+      '................',
+      '.....OOOOOO.....',
+      '...OOBBBBBBOO...',
+      '..OBLLBBBBBBBO..',
+      '..OBLBBBBBBBBO..',
+      '.OBBWWBBBBWWBBO.',
+      '.OBBWOBBBBWOBBO.',
+      '.OBBBBBBBBBBBBO.',
+      '.OBBWWWWWWWWBBO.',
+      '.OBBBWWWWWWBBBO.',
+      '.OBBBBBBBBBBBBO.',
+      '.OBBBBBBBBBBBBO.',
+      '.OBBBBOOOOBBBBO.',
+      '.OBBBBO..OBBBBO.',
+      '..OBBO....OBBO..',
+      '...OO......OO...',
+    ];
+    const BLOB_COLORS = { O: '#0b0b14', B: '#2f4dff', L: '#29adff', W: '#ffffff' };
+    const SAVE_KEY = 'pixel-studio-art';
+    const VIEW = 512;
+
+    const canvas = document.getElementById('art');
+    const ctx = canvas.getContext('2d');
+    const paletteEl = document.getElementById('palette');
+    const customInput = document.getElementById('custom');
+    const mirrorInput = document.getElementById('mirror');
+    const gridInput = document.getElementById('grid');
+    const sizeSelect = document.getElementById('size');
+    const undoBtn = document.getElementById('undo');
+    const redoBtn = document.getElementById('redo');
+    const toolButtons = document.querySelectorAll('[data-tool]');
+
+    let size = 16;
+    let pixels = [];
+    let tool = 'pencil';
+    let color = '#2f4dff';
+    let undoStack = [];
+    let redoStack = [];
+    let stroke = null; // { mode, before, last }
+    let hover = null;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = VIEW * dpr;
+    canvas.height = VIEW * dpr;
+    ctx.scale(dpr, dpr);
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { return null; } },
+      set(value) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+
+    function blobPixels() {
+      return BLOB_ART.flatMap((row) => [...row].map((ch) => BLOB_COLORS[ch] || null));
+    }
+
+    /* ---------- Rendering ---------- */
+    function render() {
+      const cell = VIEW / size;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const value = pixels[y * size + x];
+          ctx.fillStyle = value || ((x + y) % 2 ? '#171a36' : '#1e2244');
+          ctx.fillRect(x * cell, y * cell, cell, cell);
+        }
+      }
+
+      if (gridInput.checked) {
+        const major = size / 4;
+        for (let i = 1; i < size; i++) {
+          ctx.fillStyle = i % major === 0 ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.07)';
+          ctx.fillRect(i * cell - 0.5, 0, 1, VIEW);
+          ctx.fillRect(0, i * cell - 0.5, VIEW, 1);
+        }
+      }
+
+      if (mirrorInput.checked) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 62, 200, 0.8)';
+        ctx.setLineDash([6, 6]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(VIEW / 2, 0);
+        ctx.lineTo(VIEW / 2, VIEW);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (hover) {
+        const cells = [hover];
+        if (mirrorInput.checked) cells.push({ x: size - 1 - hover.x, y: hover.y });
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        cells.forEach((c) => ctx.strokeRect(c.x * cell + 1, c.y * cell + 1, cell - 2, cell - 2));
+      }
+    }
+
+    /* ---------- History ---------- */
+    function updateHistoryButtons() {
+      undoBtn.disabled = undoStack.length === 0;
+      redoBtn.disabled = redoStack.length === 0;
+    }
+
+    function commit(before) {
+      const changed = before.some((value, i) => value !== pixels[i]);
+      if (!changed) return;
+      undoStack.push(before);
+      if (undoStack.length > 80) undoStack.shift();
+      redoStack = [];
+      updateHistoryButtons();
+      save();
+    }
+
+    function undo() {
+      if (!undoStack.length) return;
+      redoStack.push(pixels);
+      pixels = undoStack.pop();
+      updateHistoryButtons();
+      save();
+      render();
+    }
+
+    function redo() {
+      if (!redoStack.length) return;
+      undoStack.push(pixels);
+      pixels = redoStack.pop();
+      updateHistoryButtons();
+      save();
+      render();
+    }
+
+    function save() {
+      store.set({ size, pixels });
+    }
+
+    /* ---------- Drawing ---------- */
+    function setPixel(x, y, value) {
+      pixels[y * size + x] = value;
+      if (mirrorInput.checked) pixels[y * size + (size - 1 - x)] = value;
+    }
+
+    // Bresenham's line so fast strokes don't leave gaps
+    function line(a, b, value) {
+      let { x: x0, y: y0 } = a;
+      const { x: x1, y: y1 } = b;
+      const dx = Math.abs(x1 - x0);
+      const dy = -Math.abs(y1 - y0);
+      const sx = x0 < x1 ? 1 : -1;
+      const sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
+      while (true) {
+        setPixel(x0, y0, value);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+      }
+    }
+
+    function floodFill(x, y, value) {
+      const target = pixels[y * size + x];
+      if (target === value) return;
+      const stack = [[x, y]];
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        if (cx < 0 || cy < 0 || cx >= size || cy >= size) continue;
+        const i = cy * size + cx;
+        if (pixels[i] !== target) continue;
+        pixels[i] = value;
+        stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+      }
+    }
+
+    function cellFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor(((e.clientX - rect.left) / rect.width) * size);
+      const y = Math.floor(((e.clientY - rect.top) / rect.height) * size);
+      if (x < 0 || y < 0 || x >= size || y >= size) return null;
+      return { x, y };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const cell = cellFromEvent(e);
+      if (!cell) return;
+      e.preventDefault();
+      const mode = e.button === 2 ? 'eraser' : tool;
+
+      if (mode === 'picker') {
+        const picked = pixels[cell.y * size + cell.x];
+        if (picked) setColor(picked);
+        setTool('pencil');
+        return;
+      }
+
+      const before = pixels.slice();
+      if (mode === 'fill') {
+        floodFill(cell.x, cell.y, color);
+        if (mirrorInput.checked) floodFill(size - 1 - cell.x, cell.y, color);
+        commit(before);
+        render();
+        return;
+      }
+
+      canvas.setPointerCapture(e.pointerId);
+      stroke = { mode, before, last: cell };
+      setPixel(cell.x, cell.y, mode === 'eraser' ? null : color);
+      render();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const cell = cellFromEvent(e);
+      hover = e.pointerType === 'mouse' ? cell : null;
+      if (stroke && cell) {
+        line(stroke.last, cell, stroke.mode === 'eraser' ? null : color);
+        stroke.last = cell;
+      }
+      render();
+    });
+
+    function endStroke() {
+      if (!stroke) return;
+      commit(stroke.before);
+      stroke = null;
+    }
+    canvas.addEventListener('pointerup', endStroke);
+    canvas.addEventListener('pointercancel', endStroke);
+    canvas.addEventListener('pointerleave', () => {
+      hover = null;
+      render();
+    });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    /* ---------- Tools & colors ---------- */
+    function setTool(name) {
+      tool = name;
+      toolButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === name)));
+    }
+
+    function setColor(value) {
+      color = value.toLowerCase();
+      customInput.value = color;
+      paletteEl.querySelectorAll('.swatch').forEach((s) => s.setAttribute('aria-checked', String(s.dataset.color === color)));
+    }
+
+    PALETTE.forEach((value) => {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'swatch';
+      swatch.dataset.color = value;
+      swatch.style.background = value;
+      swatch.setAttribute('role', 'radio');
+      swatch.setAttribute('aria-label', value);
+      swatch.addEventListener('click', () => {
+        setColor(value);
+        if (tool === 'eraser' || tool === 'picker') setTool('pencil');
+      });
+      paletteEl.appendChild(swatch);
+    });
+
+    toolButtons.forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+    customInput.addEventListener('input', () => setColor(customInput.value));
+    mirrorInput.addEventListener('change', render);
+    gridInput.addEventListener('change', render);
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
+
+    document.getElementById('clear').addEventListener('click', () => {
+      const before = pixels.slice();
+      pixels = new Array(size * size).fill(null);
+      commit(before);
+      render();
+    });
+
+    document.getElementById('blob').addEventListener('click', () => {
+      const before = pixels.slice();
+      if (size !== 16) {
+        // History snapshots are tied to one canvas size
+        undoStack = [];
+        redoStack = [];
+        size = 16;
+        sizeSelect.value = '16';
+        pixels = blobPixels();
+        updateHistoryButtons();
+        save();
+      } else {
+        pixels = blobPixels();
+        commit(before);
+      }
+      render();
+    });
+
+    sizeSelect.addEventListener('change', () => {
+      const next = Number(sizeSelect.value);
+      if (next === size) return;
+      if (next < size && pixels.some(Boolean) && !confirm('Shrinking the canvas will lose detail. Continue?')) {
+        sizeSelect.value = String(size);
+        return;
+      }
+      // Scale the drawing instead of wiping it
+      const ratio = size / next;
+      const resized = new Array(next * next).fill(null);
+      for (let y = 0; y < next; y++) {
+        for (let x = 0; x < next; x++) {
+          resized[y * next + x] = pixels[Math.floor(y * ratio) * size + Math.floor(x * ratio)];
+        }
+      }
+      size = next;
+      pixels = resized;
+      undoStack = [];
+      redoStack = [];
+      updateHistoryButtons();
+      save();
+      render();
+    });
+
+    document.getElementById('download').addEventListener('click', () => {
+      const scale = 512 / size;
+      const out = document.createElement('canvas');
+      out.width = out.height = size * scale;
+      const g = out.getContext('2d');
+      pixels.forEach((value, i) => {
+        if (!value) return;
+        g.fillStyle = value;
+        g.fillRect((i % size) * scale, Math.floor(i / size) * scale, scale, scale);
+      });
+      const link = document.createElement('a');
+      link.download = 'pixel-art.png';
+      link.href = out.toDataURL('image/png');
+      link.click();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target.closest('input, select, textarea')) return;
+      const key = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && key === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tools = { b: 'pencil', p: 'pencil', e: 'eraser', f: 'fill', i: 'picker' };
+      if (tools[key]) setTool(tools[key]);
+      if (key === 'm') { mirrorInput.checked = !mirrorInput.checked; render(); }
+      if (key === 'g') { gridInput.checked = !gridInput.checked; render(); }
+    });
+
+    /* ---------- Start ---------- */
+    const saved = store.get();
+    if (saved && [16, 32].includes(saved.size) && Array.isArray(saved.pixels) && saved.pixels.length === saved.size ** 2) {
+      size = saved.size;
+      pixels = saved.pixels;
+      sizeSelect.value = String(size);
+    } else {
+      pixels = blobPixels();
+    }
+    setColor(color);
+    render();
+  })();
+  </script>
+</body>
+</html>
