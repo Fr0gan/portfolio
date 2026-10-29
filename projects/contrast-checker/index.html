@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contrast Checker | Logan Loftus</title>
+  <meta name="description" content="Check text and background colors against WCAG contrast requirements, get a passing color suggestion and generate a shade scale." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../projects.css" />
+  <style>
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      align-items: start;
+      gap: 16px;
+    }
+    .col { display: grid; gap: 16px; }
+    .panel__title { margin-bottom: 14px; font-family: var(--font-head); font-size: 1.1rem; }
+
+    .color-field { display: grid; gap: 6px; }
+    .color-field > span { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .color-input {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .color-input:focus-within { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .color-input input[type="color"] {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: none;
+      cursor: pointer;
+    }
+    .color-input input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-input input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+    .color-input input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      background: none;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .color-input input[aria-invalid="true"] { color: var(--danger); }
+    .colors { display: grid; gap: 12px; }
+    .swap { justify-self: start; }
+
+    .ratio { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 4px 0 16px; }
+    .ratio__value { font-family: var(--font-head); font-size: clamp(2.6rem, 7vw, 3.4rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .ratio__verdict { color: var(--muted); font-weight: 500; }
+
+    .checks { display: grid; gap: 8px; list-style: none; }
+    .check {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .check__name { font-weight: 500; }
+    .check__rule { color: var(--muted); font-size: 0.85rem; }
+    .badge {
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .badge--pass { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+    .badge--fail { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+
+    .preview {
+      display: grid;
+      gap: 12px;
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .preview h3 { font-family: var(--font-head); font-size: 1.6rem; line-height: 1.2; }
+    .preview p { line-height: 1.6; }
+    .preview small { font-size: 0.8rem; }
+    .preview__button {
+      justify-self: start;
+      padding: 9px 16px;
+      border: 2px solid currentColor;
+      border-radius: 8px;
+      background: none;
+      color: inherit;
+      font-weight: 600;
+    }
+
+    .fix { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+    .fix[hidden] { display: none; }
+    .fix__swatch { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 8px; }
+    .fix__text { flex: 1 1 220px; }
+    .fix__text code { font-family: var(--font-mono); }
+    .fix__text p:last-child { color: var(--muted); font-size: 0.9rem; }
+
+    .scale {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 6px;
+      list-style: none;
+    }
+    .shade {
+      display: grid;
+      align-content: end;
+      gap: 2px;
+      width: 100%;
+      min-height: 96px;
+      padding: 8px 6px;
+      border: 0;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .shade:hover { transform: translateY(-2px); }
+    .shade strong { font-size: 0.78rem; }
+    .copy-status { min-height: 1.4em; margin-top: 10px; color: var(--muted); font-size: 0.9rem; }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .scale { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html#projects">← Back to portfolio</a>
+    <span class="topbar__title">Contrast Checker</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Contrast Checker</h1>
+      <p>Check whether a text color is readable on its background under the WCAG 2.2 accessibility guidelines. If it fails, you get the closest color that passes. The page address updates as you go, so you can share a result.</p>
+    </div>
+
+    <div class="layout">
+      <div class="col">
+        <section class="panel" aria-labelledby="colors-title">
+          <h2 class="panel__title" id="colors-title">Colors</h2>
+          <div class="colors">
+            <label class="color-field">
+              <span>Text color</span>
+              <span class="color-input">
+                <input type="color" id="fg-picker" aria-label="Pick text color" />
+                <input type="text" id="fg-hex" spellcheck="false" autocomplete="off" maxlength="7" aria-label="Text color hex code" />
+              </span>
+            </label>
+            <label class="color-field">
+              <span>Background color</span>
+              <span class="color-input">
+                <input type="color" id="bg-picker" aria-label="Pick background color" />
+                <input type="text" id="bg-hex" spellcheck="false" autocomplete="off" maxlength="7" aria-label="Background color hex code" />
+              </span>
+            </label>
+            <button class="btn swap" id="swap" type="button">⇅ Swap colors</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="result-title" aria-live="polite">
+          <h2 class="panel__title" id="result-title">Contrast ratio</h2>
+          <div class="ratio">
+            <span class="ratio__value" id="ratio">1.00:1</span>
+            <span class="ratio__verdict" id="verdict"></span>
+          </div>
+          <ul class="checks" id="checks"></ul>
+        </section>
+      </div>
+
+      <div class="col">
+        <div class="preview" id="preview">
+          <h3>The quick brown fox</h3>
+          <p>Body text at a normal reading size. Most of a page is text like this, so it needs at least 4.5:1 contrast to pass level AA.</p>
+          <small>Small print and captions are the first things to become unreadable.</small>
+          <button class="preview__button" type="button" tabindex="-1">Button label</button>
+        </div>
+
+        <section class="panel fix" id="fix" hidden aria-live="polite">
+          <span class="fix__swatch" id="fix-swatch"></span>
+          <div class="fix__text">
+            <p><strong>Suggested text color: <code id="fix-hex"></code></strong></p>
+            <p id="fix-detail"></p>
+          </div>
+          <button class="btn btn--primary" id="fix-apply" type="button">Use this color</button>
+        </section>
+
+        <section class="panel" aria-labelledby="scale-title">
+          <h2 class="panel__title" id="scale-title">Shade scale from the text color</h2>
+          <ul class="scale" id="scale"></ul>
+          <p class="copy-status" id="copy-status" role="status">Click a shade to copy its hex code.</p>
+        </section>
+      </div>
+    </div>
+
+    <p class="footnote">Uses the WCAG relative luminance formula, with HSL adjustments for the suggested fix. Written in plain JavaScript. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/contrast-checker" target="_blank" rel="noopener">View source</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const CHECKS = [
+      { name: 'Normal text', level: 'AA', min: 4.5 },
+      { name: 'Large text', level: 'AA', min: 3, note: '18pt, or 14pt bold' },
+      { name: 'Normal text', level: 'AAA', min: 7 },
+      { name: 'Large text', level: 'AAA', min: 4.5, note: '18pt, or 14pt bold' },
+      { name: 'Icons & UI parts', level: 'AA', min: 3, note: 'Borders, icons, focus rings' },
+    ];
+    const SHADES = [[50, 96], [100, 90], [200, 80], [300, 69], [400, 58], [500, 48], [600, 40], [700, 32], [800, 24], [900, 16]];
+
+    /* ---------- Color math ---------- */
+    function parseHex(value) {
+      let hex = value.trim().replace(/^#/, '').toLowerCase();
+      if (/^[0-9a-f]{3}$/.test(hex)) hex = [...hex].map((c) => c + c).join('');
+      return /^[0-9a-f]{6}$/.test(hex) ? `#${hex}` : null;
+    }
+    const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const rgbToHex = (rgb) => `#${rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('')}`;
+
+    function luminance(hex) {
+      const [r, g, b] = hexToRgb(hex).map((v) => {
+        const c = v / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    function contrast(a, b) {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    }
+
+    function rgbToHsl([r, g, b]) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      if (max === min) return [0, 0, l * 100];
+      const d = max - min;
+      const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      let h;
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      return [h * 60, s * 100, l * 100];
+    }
+    function hslToRgb([h, s, l]) {
+      s /= 100; l /= 100;
+      const k = (n) => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return [f(0) * 255, f(8) * 255, f(4) * 255];
+    }
+
+    // Nearest lightness (same hue and saturation) that reaches the target ratio
+    function suggestFix(fg, bg, target) {
+      const [h, s, l] = rgbToHsl(hexToRgb(fg));
+      let best = null;
+      for (const dir of [-1, 1]) {
+        for (let step = 0.5; step <= 100; step += 0.5) {
+          const nl = l + dir * step;
+          if (nl < 0 || nl > 100) break;
+          const candidate = rgbToHex(hslToRgb([h, s, nl]));
+          if (contrast(candidate, bg) >= target) {
+            if (!best || step < best.step) best = { hex: candidate, step };
+            break;
+          }
+        }
+      }
+      return best && best.hex;
+    }
+
+    /* ---------- State ---------- */
+    const $ = (id) => document.getElementById(id);
+    const fgPicker = $('fg-picker');
+    const fgHex = $('fg-hex');
+    const bgPicker = $('bg-picker');
+    const bgHex = $('bg-hex');
+    let fg = '#8a94a6';
+    let bg = '#ffffff';
+
+    function readHash() {
+      const parts = location.hash.slice(1).split('-').map((v) => parseHex(v));
+      return parts.length === 2 && parts[0] && parts[1] ? parts : null;
+    }
+    const fromHash = readHash();
+    if (fromHash) [fg, bg] = fromHash;
+
+    function setColors(nextFg, nextBg, { syncText = true } = {}) {
+      fg = nextFg;
+      bg = nextBg;
+      fgPicker.value = fg;
+      bgPicker.value = bg;
+      if (syncText) {
+        fgHex.value = fg.toUpperCase();
+        bgHex.value = bg.toUpperCase();
+      }
+      fgHex.removeAttribute('aria-invalid');
+      bgHex.removeAttribute('aria-invalid');
+      history.replaceState(null, '', `#${fg.slice(1)}-${bg.slice(1)}`);
+      render();
+    }
+
+    function verdictFor(ratio) {
+      if (ratio >= 7) return 'Excellent: passes every text check';
+      if (ratio >= 4.5) return 'Good: passes AA for all text';
+      if (ratio >= 3) return 'Only passes for large text and UI parts';
+      return 'Fails every check';
+    }
+
+    function render() {
+      const ratio = contrast(fg, bg);
+      // WCAG compares the unrounded ratio, so floor for display to avoid showing 4.50 for 4.497
+      $('ratio').textContent = `${(Math.floor(ratio * 100) / 100).toFixed(2)}:1`;
+      $('verdict').textContent = verdictFor(ratio);
+
+      const checks = $('checks');
+      checks.innerHTML = '';
+      CHECKS.forEach((check) => {
+        const pass = ratio >= check.min;
+        const li = document.createElement('li');
+        li.className = 'check';
+        li.innerHTML = `<div><div class="check__name"></div><div class="check__rule"></div></div><span class="badge ${pass ? 'badge--pass' : 'badge--fail'}">${pass ? 'Pass' : 'Fail'}</span>`;
+        li.querySelector('.check__name').textContent = `${check.name} · ${check.level}`;
+        li.querySelector('.check__rule').textContent = `Needs ${check.min}:1${check.note ? ` · ${check.note}` : ''}`;
+        checks.append(li);
+      });
+
+      const preview = $('preview');
+      preview.style.color = fg;
+      preview.style.backgroundColor = bg;
+
+      const fix = $('fix');
+      if (ratio < 4.5) {
+        const suggestion = suggestFix(fg, bg, 4.5);
+        fix.hidden = !suggestion;
+        if (suggestion) {
+          $('fix-swatch').style.background = suggestion;
+          $('fix-hex').textContent = suggestion.toUpperCase();
+          $('fix-detail').textContent = `The closest shade of your color that reaches 4.5:1 (AA) on this background: ${contrast(suggestion, bg).toFixed(2)}:1.`;
+          $('fix-apply').onclick = () => setColors(suggestion, bg);
+        }
+      } else {
+        fix.hidden = true;
+      }
+
+      renderScale();
+    }
+
+    function renderScale() {
+      const [h, s] = rgbToHsl(hexToRgb(fg));
+      const list = $('scale');
+      list.innerHTML = '';
+      SHADES.forEach(([name, lightness]) => {
+        const hex = rgbToHex(hslToRgb([h, Math.max(s, 8), lightness]));
+        const onWhite = contrast(hex, '#ffffff');
+        const onBlack = contrast(hex, '#000000');
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shade';
+        button.style.background = hex;
+        button.style.color = onWhite >= onBlack ? '#ffffff' : '#000000';
+        button.innerHTML = `<strong>${name}</strong><span>${hex.toUpperCase()}</span><span>${Math.max(onWhite, onBlack).toFixed(1)}:1</span>`;
+        button.setAttribute('aria-label', `Shade ${name}, ${hex.toUpperCase()}. Copy hex code`);
+        button.addEventListener('click', () => copy(hex.toUpperCase()));
+        li.append(button);
+        list.append(li);
+      });
+    }
+
+    async function copy(text) {
+      const status = $('copy-status');
+      try {
+        await navigator.clipboard.writeText(text);
+        status.textContent = `Copied ${text} to the clipboard.`;
+      } catch {
+        status.textContent = `Couldn't copy automatically. The hex code is ${text}.`;
+      }
+    }
+
+    /* ---------- Events ---------- */
+    fgPicker.addEventListener('input', () => setColors(fgPicker.value, bg));
+    bgPicker.addEventListener('input', () => setColors(fg, bgPicker.value));
+    [[fgHex, 'fg'], [bgHex, 'bg']].forEach(([input, which]) => {
+      input.addEventListener('input', () => {
+        const parsed = parseHex(input.value);
+        if (!parsed) {
+          input.setAttribute('aria-invalid', 'true');
+          return;
+        }
+        if (which === 'fg') setColors(parsed, bg, { syncText: false });
+        else setColors(fg, parsed, { syncText: false });
+      });
+      input.addEventListener('blur', () => { input.value = (which === 'fg' ? fg : bg).toUpperCase(); input.removeAttribute('aria-invalid'); });
+    });
+    $('swap').addEventListener('click', () => setColors(bg, fg));
+
+    window.addEventListener('hashchange', () => {
+      const next = readHash();
+      if (next) setColors(next[0], next[1]);
+    });
+
+    setColors(fg, bg);
+  })();
+  </script>
+</body>
+</html>

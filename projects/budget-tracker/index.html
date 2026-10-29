@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Tracker | Logan Loftus</title>
+  <meta name="description" content="Track monthly income and spending, set category budgets and export to CSV. Data stays in your browser." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../projects.css" />
+  <style>
+    .notice {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 20px;
+      margin-bottom: 20px;
+      padding: 14px 18px;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    }
+    .notice p { color: var(--text); }
+
+    .month-nav { display: flex; align-items: center; gap: 10px; }
+    .month-nav h2 {
+      min-width: 9.5em;
+      font-family: var(--font-head);
+      font-size: 1.3rem;
+      text-align: center;
+    }
+    .btn--icon { width: 38px; height: 38px; padding: 0; font-size: 1.2rem; }
+
+    .stat__value.is-positive { color: var(--success); }
+    .stat__value.is-negative { color: var(--danger); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+      gap: 16px;
+    }
+    .col { display: grid; gap: 16px; }
+    .panel__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.1rem; }
+    .panel > .panel__title { margin-bottom: 14px; }
+    .panel__hint { color: var(--muted); font-size: 0.85rem; }
+
+    #form { display: grid; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-field { display: grid; gap: 6px; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      min-width: 0;
+      padding: 9px 11px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .form-field input:focus,
+    .form-field select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+    .form-error { color: var(--danger); font-size: 0.9rem; }
+
+    .budgets { display: grid; gap: 14px; list-style: none; }
+    .budget__top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .budget__name { font-weight: 500; }
+    .budget__amounts { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+    .budget__limit {
+      width: 5.5em;
+      padding: 3px 6px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: none;
+      color: var(--text);
+      font: inherit;
+      text-align: right;
+    }
+    .budget__limit:hover { border-color: var(--border-strong); }
+    .budget__limit:focus { border-color: var(--accent); outline: none; background: var(--surface); }
+    .bar { height: 8px; margin-top: 6px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+    .bar__fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.3s; }
+    .is-warning .bar__fill { background: var(--warning); }
+    .is-over .bar__fill { background: var(--danger); }
+    .budget__note { margin-top: 4px; font-size: 0.8rem; }
+    .is-warning .budget__note { color: var(--warning); }
+    .is-over .budget__note { color: var(--danger); }
+
+    .tx-list { list-style: none; }
+    .tx {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+    }
+    .tx:first-child { border-top: 0; padding-top: 0; }
+    .tx__desc { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .tx__meta { color: var(--muted); font-size: 0.85rem; }
+    .tx__amount { font-family: var(--font-mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+    .tx__amount.is-income { color: var(--success); }
+    .tx__delete {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 0;
+      border-radius: 6px;
+      background: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .tx__delete:hover { background: var(--surface-2); color: var(--danger); }
+    .empty { padding: 24px 0 8px; color: var(--muted); text-align: center; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) {
+      .form-row { grid-template-columns: 1fr; }
+      .month-nav h2 { min-width: 0; font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html#projects">← Back to portfolio</a>
+    <span class="topbar__title">Budget Tracker</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Budget Tracker</h1>
+      <p>Track income and spending month by month, set a budget for each category, and export everything to a spreadsheet. Your data is saved in this browser and is never sent anywhere.</p>
+    </div>
+
+    <div class="notice" id="sample-notice" hidden>
+      <p><strong>You're viewing sample data.</strong> Look around, then clear it when you're ready to add your own.</p>
+      <button class="btn" id="clear-sample" type="button">Clear sample data</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="month-nav">
+        <button class="btn btn--icon" id="prev-month" type="button" aria-label="Previous month">‹</button>
+        <h2 id="month-label" aria-live="polite"></h2>
+        <button class="btn btn--icon" id="next-month" type="button" aria-label="Next month">›</button>
+      </div>
+      <span class="toolbar__spacer"></span>
+      <button class="btn" id="export" type="button">Export CSV</button>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat__label">Income</span><span class="stat__value" id="sum-income">$0</span></div>
+      <div class="stat"><span class="stat__label">Spent</span><span class="stat__value" id="sum-spent">$0</span></div>
+      <div class="stat"><span class="stat__label">Left over</span><span class="stat__value" id="sum-left">$0</span></div>
+      <div class="stat"><span class="stat__label">Savings rate</span><span class="stat__value" id="sum-rate">—</span></div>
+    </div>
+
+    <div class="layout">
+      <div class="col">
+        <section class="panel" aria-labelledby="form-title">
+          <h2 class="panel__title" id="form-title">Add a transaction</h2>
+          <form id="form" novalidate>
+            <div class="segmented" role="group" aria-label="Transaction type">
+              <button type="button" data-type="expense" aria-pressed="true">Expense</button>
+              <button type="button" data-type="income" aria-pressed="false">Income</button>
+            </div>
+            <label class="form-field">Description
+              <input id="f-desc" type="text" maxlength="60" placeholder="e.g. Groceries" autocomplete="off" />
+            </label>
+            <div class="form-row">
+              <label class="form-field">Amount ($)
+                <input id="f-amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" />
+              </label>
+              <label class="form-field">Date
+                <input id="f-date" type="date" />
+              </label>
+            </div>
+            <label class="form-field">Category
+              <select id="f-category"></select>
+            </label>
+            <p class="form-error" id="form-error" role="alert" hidden></p>
+            <button class="btn btn--primary" type="submit">Add transaction</button>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="budgets-title">
+          <div class="panel__head">
+            <h2 class="panel__title" id="budgets-title">Monthly budgets</h2>
+            <span class="panel__hint">Edit a limit to change it</span>
+          </div>
+          <ul class="budgets" id="budgets"></ul>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="tx-title">
+        <div class="panel__head">
+          <h2 class="panel__title" id="tx-title">Transactions</h2>
+          <select class="select" id="filter" aria-label="Filter by category"></select>
+        </div>
+        <ul class="tx-list" id="tx-list"></ul>
+        <p class="empty" id="tx-empty" hidden>No transactions for this month yet. Add one with the form.</p>
+      </section>
+    </div>
+
+    <p class="footnote">Built with plain JavaScript, the Intl API for currency and date formatting, and localStorage. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/budget-tracker" target="_blank" rel="noopener">View source</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const STORAGE_KEY = 'budget-tracker-v1';
+    const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing & bills', 'Entertainment', 'Shopping', 'Health', 'Other'];
+    const INCOME_CATEGORIES = ['Job', 'Gift', 'Other income'];
+    const DEFAULT_BUDGETS = { Food: 350, Transport: 120, 'Housing & bills': 300, Entertainment: 100, Shopping: 150, Health: 60, Other: 80 };
+
+    const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+    const monthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayISO = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    const toUTCDate = (iso) => {
+      const [y, m, d = 1] = iso.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, d));
+    };
+    const shiftMonth = (ym, delta) => {
+      const [y, m] = ym.split('-').map(Number);
+      const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
+    };
+    const uid = () => Math.random().toString(36).slice(2, 10);
+
+    /* ---------- Storage ---------- */
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.transactions)) return saved;
+      } catch { /* storage unavailable or corrupt */ }
+      return null;
+    }
+    function save() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+    }
+
+    function sampleData() {
+      const today = todayISO();
+      const thisMonth = today.slice(0, 7);
+      const lastMonth = shiftMonth(thisMonth, -1);
+      const day = Number(today.slice(8, 10));
+      const rows = [
+        [1, 'income', 'Paycheck', 'Job', 520],
+        [2, 'expense', 'Phone bill', 'Housing & bills', 45],
+        [3, 'expense', 'Groceries', 'Food', 62.4],
+        [4, 'expense', 'Monthly bus pass', 'Transport', 55],
+        [6, 'expense', 'Streaming subscription', 'Entertainment', 11.99],
+        [8, 'expense', 'Coffee with friends', 'Food', 9.5],
+        [9, 'expense', 'Gym membership', 'Health', 25],
+        [11, 'expense', 'Hiking boots', 'Shopping', 89.99],
+        [12, 'expense', 'Groceries', 'Food', 48.1],
+        [15, 'income', 'Paycheck', 'Job', 520],
+        [16, 'expense', 'Gas', 'Transport', 38],
+        [18, 'expense', 'Movie tickets', 'Entertainment', 24],
+        [20, 'income', 'Birthday gift', 'Gift', 50],
+        [21, 'expense', 'Dinner out', 'Food', 32.75],
+        [23, 'expense', 'Internet (my share)', 'Housing & bills', 30],
+        [25, 'expense', 'Groceries', 'Food', 71.3],
+        [27, 'expense', 'Pharmacy', 'Health', 18.2],
+      ];
+      const transactions = [];
+      rows.forEach(([d, type, desc, category, amount]) => {
+        transactions.push({ id: uid(), type, desc, category, amount, date: `${lastMonth}-${pad(d)}` });
+        if (d <= day) transactions.push({ id: uid(), type, desc, category, amount: Math.round(amount * (0.85 + Math.random() * 0.3) * 100) / 100, date: `${thisMonth}-${pad(d)}` });
+      });
+      return { transactions, budgets: { ...DEFAULT_BUDGETS }, sample: true };
+    }
+
+    let state = load() || sampleData();
+    let viewMonth = todayISO().slice(0, 7);
+    let entryType = 'expense';
+    let filter = '';
+
+    /* ---------- Elements ---------- */
+    const $ = (id) => document.getElementById(id);
+    const form = $('form');
+    const fDesc = $('f-desc');
+    const fAmount = $('f-amount');
+    const fDate = $('f-date');
+    const fCategory = $('f-category');
+    const formError = $('form-error');
+    const typeButtons = form.querySelectorAll('[data-type]');
+    const filterSelect = $('filter');
+
+    function fillCategories() {
+      const list = entryType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+      fCategory.innerHTML = list.map((c) => `<option>${c}</option>`).join('');
+    }
+    function fillFilter() {
+      const options = ['<option value="">All categories</option>']
+        .concat([...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].map((c) => `<option value="${c}">${c}</option>`));
+      filterSelect.innerHTML = options.join('');
+    }
+
+    /* ---------- Rendering ---------- */
+    const monthTransactions = () => state.transactions.filter((t) => t.date.startsWith(viewMonth));
+
+    function render() {
+      $('month-label').textContent = monthName.format(toUTCDate(viewMonth));
+      $('sample-notice').hidden = !state.sample;
+
+      const items = monthTransactions();
+      const income = items.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const spent = items.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      const left = income - spent;
+      $('sum-income').textContent = money.format(income);
+      $('sum-spent').textContent = money.format(spent);
+      const leftEl = $('sum-left');
+      leftEl.textContent = money.format(left);
+      leftEl.classList.toggle('is-positive', left > 0);
+      leftEl.classList.toggle('is-negative', left < 0);
+      $('sum-rate').textContent = income > 0 ? `${Math.round((left / income) * 100)}%` : '—';
+
+      renderBudgets(items);
+      renderTransactions(items);
+    }
+
+    function renderBudgets(items) {
+      const list = $('budgets');
+      list.innerHTML = '';
+      EXPENSE_CATEGORIES.forEach((category) => {
+        const spent = items.filter((t) => t.type === 'expense' && t.category === category).reduce((s, t) => s + t.amount, 0);
+        const limit = Number(state.budgets[category]) || 0;
+        const ratio = limit > 0 ? spent / limit : spent > 0 ? Infinity : 0;
+
+        const li = document.createElement('li');
+        li.className = 'budget';
+        if (ratio > 1) li.classList.add('is-over');
+        else if (ratio >= 0.8) li.classList.add('is-warning');
+
+        const top = document.createElement('div');
+        top.className = 'budget__top';
+        const name = document.createElement('span');
+        name.className = 'budget__name';
+        name.textContent = category;
+        const amounts = document.createElement('span');
+        amounts.className = 'budget__amounts';
+        amounts.append(`${money.format(spent)} of $`);
+        const input = document.createElement('input');
+        input.className = 'budget__limit';
+        input.type = 'number';
+        input.min = '0';
+        input.step = '10';
+        input.value = String(limit);
+        input.setAttribute('aria-label', `${category} monthly budget in dollars`);
+        input.addEventListener('change', () => {
+          state.budgets[category] = Math.max(0, Number(input.value) || 0);
+          save();
+          render();
+        });
+        amounts.append(input);
+        top.append(name, amounts);
+
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.setAttribute('role', 'presentation');
+        const fill = document.createElement('div');
+        fill.className = 'bar__fill';
+        fill.style.width = `${Math.min(100, ratio * 100)}%`;
+        bar.append(fill);
+        li.append(top, bar);
+
+        if (ratio > 1) {
+          const note = document.createElement('p');
+          note.className = 'budget__note';
+          note.textContent = `${money.format(spent - limit)} over budget`;
+          li.append(note);
+        } else if (ratio >= 0.8) {
+          const note = document.createElement('p');
+          note.className = 'budget__note';
+          note.textContent = `${money.format(limit - spent)} left`;
+          li.append(note);
+        }
+        list.append(li);
+      });
+    }
+
+    function renderTransactions(items) {
+      const list = $('tx-list');
+      list.innerHTML = '';
+      const visible = items
+        .filter((t) => !filter || t.category === filter)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      $('tx-empty').hidden = visible.length > 0;
+      $('tx-empty').textContent = filter && items.length
+        ? `No ${filter} transactions this month.`
+        : 'No transactions for this month yet. Add one with the form.';
+
+      visible.forEach((t) => {
+        const li = document.createElement('li');
+        li.className = 'tx';
+        const info = document.createElement('div');
+        const desc = document.createElement('div');
+        desc.className = 'tx__desc';
+        desc.textContent = t.desc;
+        const meta = document.createElement('div');
+        meta.className = 'tx__meta';
+        meta.textContent = `${shortDate.format(toUTCDate(t.date))} · ${t.category}`;
+        info.append(desc, meta);
+
+        const amount = document.createElement('span');
+        amount.className = `tx__amount${t.type === 'income' ? ' is-income' : ''}`;
+        amount.textContent = `${t.type === 'income' ? '+' : '−'}${money.format(t.amount)}`;
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'tx__delete';
+        del.textContent = '×';
+        del.setAttribute('aria-label', `Delete ${t.desc}, ${money.format(t.amount)}`);
+        del.addEventListener('click', () => {
+          state.transactions = state.transactions.filter((x) => x.id !== t.id);
+          save();
+          render();
+        });
+        li.append(info, amount, del);
+        list.append(li);
+      });
+    }
+
+    /* ---------- Events ---------- */
+    typeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        entryType = button.dataset.type;
+        typeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        fillCategories();
+      });
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const desc = fDesc.value.trim();
+      const amount = Math.round(Number(fAmount.value) * 100) / 100;
+      const date = fDate.value;
+      let error = '';
+      if (!desc) error = 'Add a short description.';
+      else if (!(amount > 0)) error = 'Enter an amount greater than $0.';
+      else if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) error = 'Pick a date.';
+      formError.hidden = !error;
+      formError.textContent = error;
+      if (error) return;
+
+      state.transactions.push({ id: uid(), type: entryType, desc, amount, category: fCategory.value, date });
+      viewMonth = date.slice(0, 7);
+      save();
+      render();
+      fDesc.value = '';
+      fAmount.value = '';
+      fDesc.focus();
+    });
+
+    $('prev-month').addEventListener('click', () => { viewMonth = shiftMonth(viewMonth, -1); render(); });
+    $('next-month').addEventListener('click', () => { viewMonth = shiftMonth(viewMonth, 1); render(); });
+    filterSelect.addEventListener('change', () => { filter = filterSelect.value; render(); });
+
+    $('clear-sample').addEventListener('click', () => {
+      state = { transactions: [], budgets: { ...state.budgets }, sample: false };
+      save();
+      render();
+      fDesc.focus();
+    });
+
+    $('export').addEventListener('click', () => {
+      const escape = (value) => `"${String(value).replace(/"/g, '""')}"`;
+      const rows = [['Date', 'Type', 'Description', 'Category', 'Amount']]
+        .concat([...state.transactions]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((t) => [t.date, t.type, t.desc, t.category, (t.type === 'expense' ? -t.amount : t.amount).toFixed(2)]));
+      const csv = rows.map((row) => row.map(escape).join(',')).join('\r\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `budget-${todayISO()}.csv`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    /* ---------- Start ---------- */
+    fillCategories();
+    fillFilter();
+    fDate.value = todayISO();
+    if (!load()) save();
+    render();
+  })();
+  </script>
+</body>
+</html>

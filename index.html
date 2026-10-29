@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Logan Loftus | Game &amp; Web Developer</title>
-  <meta name="description" content="Logan Loftus is a game and web developer. Portfolio of browser games and tools built from scratch in JavaScript, plus an original GameMaker game." />
+  <title>Logan Loftus | Web Developer</title>
+  <meta name="description" content="Logan Loftus is a web developer. Portfolio of websites and practical browser tools built from scratch in HTML, CSS and JavaScript." />
   <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -36,9 +36,9 @@
     <!-- Intro -->
     <section class="intro" id="top">
       <div class="container">
-        <p class="label">Game &amp; web developer</p>
+        <p class="label">Web developer</p>
         <h1 class="intro__name">Logan Loftus</h1>
-        <p class="intro__lead">I design and build games and interactive tools for the web. Below are five browser projects written from scratch in plain JavaScript, along with the GameMaker game where I got started.</p>
+        <p class="intro__lead">I build websites and practical tools for the web, from a live weather app to a budget tracker. Everything below is written from scratch in plain HTML, CSS and JavaScript.</p>
         <div class="intro__actions">
           <a class="btn btn--primary" href="#projects">View projects</a>
           <a class="btn" href="https://github.com/Fr0gan" target="_blank" rel="noopener">GitHub profile <span aria-hidden="true">↗</span></a>
@@ -46,7 +46,7 @@
         <ul class="intro__facts" aria-label="Highlights">
           <li>Top Student, Game Design</li>
           <li>100-day coding streak</li>
-          <li>6 finished projects</li>
+          <li>6 web projects</li>
         </ul>
       </div>
     </section>
@@ -56,90 +56,90 @@
       <div class="container">
         <header class="section__head">
           <h2 id="projects-title">Selected projects</h2>
-          <p>Every web project runs in the browser with no frameworks or libraries. Open a demo to try it, or read the source on GitHub.</p>
+          <p>Each project is built without frameworks or libraries and works on phones as well as desktops. Open a demo to try it, or read the source on GitHub.</p>
         </header>
 
         <div class="projects">
           <article class="project">
-            <a class="project__media" href="projects/slime-blaster/index.html" tabindex="-1" aria-hidden="true">
-              <img src="images/projects/slime-blaster.jpg" alt="" width="1280" height="722" loading="lazy" />
+            <a class="project__media" href="projects/weather/index.html" tabindex="-1" aria-hidden="true">
+              <img src="images/projects/weather.jpg" alt="" width="1280" height="778" loading="lazy" />
             </a>
             <div class="project__body">
-              <p class="project__meta">Game · HTML Canvas</p>
-              <h3><a href="projects/slime-blaster/index.html">Slime Blaster</a></h3>
-              <p>An arcade shooter rebuilt from my GameMaker game. The player holds a lane against waves of enemies that speed up the longer the run lasts.</p>
+              <p class="project__meta">Web app · Live data</p>
+              <h3><a href="projects/weather/index.html">Weather</a></h3>
+              <p>Current conditions, a 24-hour outlook and a 7-day forecast for any city in the world, with city search, your location, and °F or °C.</p>
               <ul class="project__points">
-                <li>Delta-time game loop with sprites drawn from pixel maps</li>
-                <li>Collision detection, difficulty scaling and health pickups</li>
-                <li>Keyboard and touch controls; high score saved locally</li>
+                <li>Live data from the Open-Meteo forecast and geocoding APIs</li>
+                <li>Accessible search box with keyboard navigation</li>
+                <li>Loading and error states with retry; remembers your last city</li>
               </ul>
-              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>Canvas API</li><li>localStorage</li></ul>
+              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>Fetch API</li><li>Geolocation</li><li>REST API</li></ul>
               <div class="project__links">
-                <a class="link" href="projects/slime-blaster/index.html">Play demo <span aria-hidden="true">→</span></a>
-                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/slime-blaster" target="_blank" rel="noopener">Source</a>
+                <a class="link" href="projects/weather/index.html">Open app <span aria-hidden="true">→</span></a>
+                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/weather" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
 
           <article class="project">
-            <a class="project__media" href="projects/samurai-duel/index.html" tabindex="-1" aria-hidden="true">
-              <img src="images/projects/samurai-duel.jpg" alt="" width="1280" height="722" loading="lazy" />
+            <a class="project__media" href="projects/budget-tracker/index.html" tabindex="-1" aria-hidden="true">
+              <img src="images/projects/budget-tracker.jpg" alt="" width="1280" height="800" loading="lazy" />
             </a>
             <div class="project__body">
-              <p class="project__meta">Game · Reaction timing</p>
-              <h3><a href="projects/samurai-duel/index.html">Samurai Duel</a></h3>
-              <p>A reaction-time game modeled on the standoff scenes in classic samurai films. Wait for the signal, then strike before the opponent does, across six difficulty tiers.</p>
+              <p class="project__meta">Web app · Personal finance</p>
+              <h3><a href="projects/budget-tracker/index.html">Budget Tracker</a></h3>
+              <p>Track income and spending by month, set a budget for each category, and see at a glance where you're close to or over the limit.</p>
               <ul class="project__points">
-                <li>Explicit state machine: ready, waiting, signal, result</li>
-                <li>Reaction times measured with <code>performance.now()</code></li>
-                <li>Scene and duel animations written entirely in CSS</li>
+                <li>Monthly summary with savings rate and per-category budgets</li>
+                <li>Form validation, filtering and export to a CSV spreadsheet</li>
+                <li>Data stays private in the browser with localStorage</li>
               </ul>
-              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>CSS animation</li><li>SVG</li></ul>
+              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>Intl API</li><li>localStorage</li><li>CSV</li></ul>
               <div class="project__links">
-                <a class="link" href="projects/samurai-duel/index.html">Play demo <span aria-hidden="true">→</span></a>
-                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/samurai-duel" target="_blank" rel="noopener">Source</a>
+                <a class="link" href="projects/budget-tracker/index.html">Open app <span aria-hidden="true">→</span></a>
+                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/budget-tracker" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
 
           <article class="project">
-            <a class="project__media" href="projects/memory-match/index.html" tabindex="-1" aria-hidden="true">
-              <img src="images/projects/memory-match.jpg" alt="" width="1280" height="718" loading="lazy" />
+            <a class="project__media" href="projects/cedar-and-cairn/index.html" tabindex="-1" aria-hidden="true">
+              <img src="images/projects/cedar-and-cairn.jpg" alt="" width="1280" height="800" loading="lazy" />
             </a>
             <div class="project__body">
-              <p class="project__meta">Game · DOM</p>
-              <h3><a href="projects/memory-match/index.html">Memory Match</a></h3>
-              <p>A card-matching game with three difficulty levels, a move counter, a timer and a saved best result for each level.</p>
+              <p class="project__meta">Website · Concept client</p>
+              <h3><a href="projects/cedar-and-cairn/index.html">Cedar &amp; Cairn</a></h3>
+              <p>A complete marketing website for a fictional hiking outfitter, with its own brand, guided trip listings, gear rentals and a booking form.</p>
               <ul class="project__points">
-                <li>Fisher–Yates shuffle for an unbiased deal</li>
-                <li>3D card flips using CSS transforms</li>
-                <li>Real buttons with screen-reader labels for every card</li>
+                <li>Trip cards with difficulty filters and generated elevation profiles</li>
+                <li>Live gear rental estimate with a multi-day discount</li>
+                <li>Booking form with inline validation and a confirmation step</li>
               </ul>
-              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>CSS 3D transforms</li><li>ARIA</li></ul>
+              <ul class="stack" aria-label="Built with"><li>HTML</li><li>CSS</li><li>JavaScript</li><li>SVG</li></ul>
               <div class="project__links">
-                <a class="link" href="projects/memory-match/index.html">Play demo <span aria-hidden="true">→</span></a>
-                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/memory-match" target="_blank" rel="noopener">Source</a>
+                <a class="link" href="projects/cedar-and-cairn/index.html">Visit site <span aria-hidden="true">→</span></a>
+                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/cedar-and-cairn" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
 
           <article class="project">
-            <a class="project__media" href="projects/typing-test/index.html" tabindex="-1" aria-hidden="true">
-              <img src="images/projects/typing-test.jpg" alt="" width="1280" height="800" loading="lazy" />
+            <a class="project__media" href="projects/contrast-checker/index.html" tabindex="-1" aria-hidden="true">
+              <img src="images/projects/contrast-checker.jpg" alt="" width="1280" height="800" loading="lazy" />
             </a>
             <div class="project__body">
-              <p class="project__meta">Tool · Text input</p>
-              <h3><a href="projects/typing-test/index.html">Speed Typer</a></h3>
-              <p>A typing speed test with 15, 30 and 60-second modes, live words-per-minute and accuracy, and personal bests.</p>
+              <p class="project__meta">Tool · Accessibility</p>
+              <h3><a href="projects/contrast-checker/index.html">Contrast Checker</a></h3>
+              <p>Checks whether text is readable on its background under the WCAG 2.2 guidelines, and suggests the closest color that passes when it isn't.</p>
               <ul class="project__points">
-                <li>WPM counts only correctly typed characters</li>
-                <li>Built on input events, so it works with phone keyboards</li>
-                <li>Measured caret placement and automatic line scrolling</li>
+                <li>WCAG relative luminance and contrast ratio math</li>
+                <li>Automatic fix that keeps the original hue</li>
+                <li>Shade scale generator and shareable links</li>
               </ul>
-              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>DOM measurement</li><li>localStorage</li></ul>
+              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>Color math</li><li>WCAG 2.2</li></ul>
               <div class="project__links">
-                <a class="link" href="projects/typing-test/index.html">Try it <span aria-hidden="true">→</span></a>
-                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/typing-test" target="_blank" rel="noopener">Source</a>
+                <a class="link" href="projects/contrast-checker/index.html">Open tool <span aria-hidden="true">→</span></a>
+                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/contrast-checker" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
@@ -159,29 +159,29 @@
               </ul>
               <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>Canvas API</li><li>Algorithms</li></ul>
               <div class="project__links">
-                <a class="link" href="projects/pixel-studio/index.html">Try it <span aria-hidden="true">→</span></a>
+                <a class="link" href="projects/pixel-studio/index.html">Open tool <span aria-hidden="true">→</span></a>
                 <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/pixel-studio" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
 
           <article class="project">
-            <a class="project__media project__media--pixel" href="https://drive.google.com/file/d/16_F3TqHjifKnF8Pd_zJNn89QjGbBctRv/view?usp=sharing" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
-              <img src="images/GameProject.PNG" alt="" width="996" height="986" loading="lazy" />
+            <a class="project__media" href="projects/typing-test/index.html" tabindex="-1" aria-hidden="true">
+              <img src="images/projects/typing-test.jpg" alt="" width="1280" height="800" loading="lazy" />
             </a>
             <div class="project__body">
-              <p class="project__meta">Game · GameMaker</p>
-              <h3><a href="https://drive.google.com/file/d/16_F3TqHjifKnF8Pd_zJNn89QjGbBctRv/view?usp=sharing" target="_blank" rel="noopener">GameMaker Platformer</a></h3>
-              <p>My first complete game: a 2D platformer where the player fights off waves of slimes. It's the project that got me into game development, and the basis for Slime Blaster.</p>
+              <p class="project__meta">Tool · Text input</p>
+              <h3><a href="projects/typing-test/index.html">Speed Typer</a></h3>
+              <p>A typing speed test with 15, 30 and 60-second modes, live words-per-minute and accuracy, and personal bests.</p>
               <ul class="project__points">
-                <li>Jumping, shooting and enemy AI</li>
-                <li>Health and score systems</li>
-                <li>Arrow keys to move, space to shoot</li>
+                <li>WPM counts only correctly typed characters</li>
+                <li>Built on input events, so it works with phone keyboards</li>
+                <li>Measured caret placement and automatic line scrolling</li>
               </ul>
-              <ul class="stack" aria-label="Built with"><li>GameMaker</li><li>Game design</li></ul>
+              <ul class="stack" aria-label="Built with"><li>JavaScript</li><li>DOM measurement</li><li>localStorage</li></ul>
               <div class="project__links">
-                <a class="link" href="https://drive.google.com/file/d/16_F3TqHjifKnF8Pd_zJNn89QjGbBctRv/view?usp=sharing" target="_blank" rel="noopener">Download build <span aria-hidden="true">↗</span></a>
-                <a class="link link--muted" href="projects/slime-blaster/index.html">Browser version</a>
+                <a class="link" href="projects/typing-test/index.html">Open tool <span aria-hidden="true">→</span></a>
+                <a class="link link--muted" href="https://github.com/Fr0gan/portfolio/tree/main/projects/typing-test" target="_blank" rel="noopener">Source</a>
               </div>
             </div>
           </article>
@@ -205,14 +205,14 @@
                 <p>Designed and developed a website for a small, up-and-coming business.</p>
               </li>
               <li class="entry">
-                <p class="entry__context">Independent · GameMaker</p>
-                <h4>2D platformer</h4>
-                <p>Designed and built a complete 2D platformer with jumping, shooting and enemy AI.</p>
+                <p class="entry__context">Independent · Web</p>
+                <h4>Web apps and tools</h4>
+                <p>Built six web projects in vanilla JavaScript, including a live weather app, a budget tracker and a concept business website.</p>
               </li>
               <li class="entry">
-                <p class="entry__context">Independent · Web</p>
-                <h4>Browser games and tools</h4>
-                <p>Built five browser projects in vanilla JavaScript, along with this site.</p>
+                <p class="entry__context">Independent · GameMaker</p>
+                <h4>2D platformer</h4>
+                <p>Designed and built a complete 2D platformer with jumping, shooting and enemy AI. <a class="link" href="https://drive.google.com/file/d/16_F3TqHjifKnF8Pd_zJNn89QjGbBctRv/view?usp=sharing" target="_blank" rel="noopener">Download <span aria-hidden="true">↗</span></a></p>
               </li>
             </ol>
           </div>
@@ -243,8 +243,8 @@
         </header>
         <div class="columns">
           <div class="prose">
-            <p>I'm a student developer focused on games and interactive web experiences. I started in GameMaker, where I built a 2D platformer and earned the Top Student award in my Game Design course.</p>
-            <p>Since then I've been building for the browser with plain HTML, CSS and JavaScript. I like writing small, dependency-free code and making sure things work on phones as well as desktops.</p>
+            <p>I'm a student developer who builds websites and practical tools for the web. I got into programming through game design, building a 2D platformer in GameMaker and earning the Top Student award in my Game Design course.</p>
+            <p>Now I focus on the web, working in plain HTML, CSS and JavaScript. I like small, dependency-free code, pages that work as well on a phone as on a desktop, and interfaces that everyone can use.</p>
             <p>Outside of programming I enjoy hiking, card games and classic samurai cinema.</p>
           </div>
           <dl class="skills">
@@ -254,11 +254,11 @@
             </div>
             <div>
               <dt>Tools</dt>
-              <dd>GameMaker, Git, GitHub</dd>
+              <dd>Git, GitHub, GameMaker</dd>
             </div>
             <div>
               <dt>Focus</dt>
-              <dd>Game design, front-end development, Canvas graphics, responsive layout</dd>
+              <dd>Front-end development, responsive design, accessibility, working with web APIs</dd>
             </div>
           </dl>
         </div>

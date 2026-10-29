@@ -12,6 +12,7 @@
   --accent-contrast: #ffffff;
   --success: #17804a;
   --danger: #c42740;
+  --warning: #a35f00;
 
   /* Game artwork colors, the same in both themes */
   --cyan: #00e5ff;
@@ -43,6 +44,7 @@
     --accent-contrast: #0e1116;
     --success: #4ade80;
     --danger: #ff6b81;
+    --warning: #f2b34a;
     color-scheme: dark;
   }
 }
@@ -58,11 +60,13 @@
   --accent-contrast: #0e1116;
   --success: #4ade80;
   --danger: #ff6b81;
+  --warning: #f2b34a;
   color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 
 body {
   min-height: 100vh;
