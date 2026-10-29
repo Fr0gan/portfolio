@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Samurai Duel | Logan Loftus</title>
   <meta name="description" content="A samurai reflex duel. Wait for the signal, then strike faster than your opponent." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗡️</text></svg>" />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Press+Start+2P&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Press+Start+2P&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../projects.css" />
   <style>
-    :root { --accent: var(--red); }
 
     .duel {
       position: relative;
@@ -20,7 +19,7 @@
       border: 1px solid var(--border-strong);
       border-radius: 16px;
       background: linear-gradient(180deg, #1c0b2e 0%, #5a1d4f 38%, #ff5e62 72%, #ffb347 100%);
-      box-shadow: 0 30px 80px -30px rgba(255, 77, 109, 0.45);
+      box-shadow: 0 24px 60px -36px rgba(0, 0, 0, 0.55);
       cursor: pointer;
       user-select: none;
       -webkit-user-select: none;
@@ -203,7 +202,7 @@
       color: var(--muted);
       font-size: 0.85rem;
     }
-    .ladder li.is-beaten { border-color: rgba(61, 255, 139, 0.4); color: var(--lime); }
+    .ladder li.is-beaten { border-color: color-mix(in srgb, var(--success) 45%, transparent); color: var(--success); }
     .ladder li.is-current { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
   </style>
 </head>
@@ -216,7 +215,7 @@
   <main class="page">
     <div class="page-head">
       <h1>Samurai Duel</h1>
-      <p>Two warriors. One sunset. Wait for the <strong style="color: var(--yellow)">!</strong> and strike before your opponent does. Move too early and you lose with dishonor. Beat all six opponents to become the Legend.</p>
+      <p>Two warriors. One sunset. Wait for the <strong>!</strong> and strike before your opponent does. Move too early and you lose with dishonor. Beat all six opponents to become the Legend.</p>
     </div>
 
     <div class="hud">

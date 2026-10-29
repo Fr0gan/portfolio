@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Speed Typer | Logan Loftus</title>
   <meta name="description" content="A typing speed test with live WPM, accuracy and personal bests." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌨️</text></svg>" />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Press+Start+2P&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../projects.css" />
   <style>
-    :root { --accent: var(--cyan); --line: 2.6rem; }
+    :root { --line: 2.6rem; }
 
     .typing {
       position: relative;
@@ -29,18 +29,18 @@
       display: flex;
       flex-wrap: wrap;
       column-gap: 0.65em;
-      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-family: var(--font-mono);
       font-size: clamp(1.15rem, 2.8vw, 1.55rem);
       line-height: var(--line);
-      color: #5d6390;
+      color: color-mix(in srgb, var(--muted) 72%, var(--surface));
       transition: transform 0.2s var(--ease-out);
     }
     .typing:not(.is-focused) .words { filter: blur(4px); opacity: 0.5; }
     .word { position: relative; display: inline-block; white-space: nowrap; }
-    .word.is-error { text-decoration: underline wavy var(--red) 2px; text-underline-offset: 6px; }
+    .word.is-error { text-decoration: underline wavy var(--danger) 2px; text-underline-offset: 6px; }
     .ch.is-correct { color: var(--text); }
-    .ch.is-incorrect { color: var(--red); }
-    .ch.is-extra { color: #b8364f; }
+    .ch.is-incorrect { color: var(--danger); }
+    .ch.is-extra { color: color-mix(in srgb, var(--danger) 65%, var(--surface)); }
 
     .caret {
       position: absolute;
@@ -95,7 +95,7 @@
     }
     .results__wpm small { display: block; color: var(--muted); font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.1em; }
     .results__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-    .results__badge { color: var(--yellow); font-family: var(--font-pixel); font-size: 0.65rem; }
+    .results__badge { margin-bottom: 8px; color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; }
 
     @media (max-width: 600px) {
       .typing { padding: 20px 16px; }
