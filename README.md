@@ -15,6 +15,8 @@ Everything is hand-written HTML, CSS and JavaScript. There are no frameworks, li
 | [Pixel Studio](https://fr0gan.github.io/portfolio/projects/pixel-studio/) | Pixel-art editor with PNG export | Flood fill, Bresenham lines, undo/redo |
 | [Speed Typer](https://fr0gan.github.io/portfolio/projects/typing-test/) | Typing speed and accuracy test | Input-event handling that works with phone keyboards |
 
+Smaller experiments live in the [Lab](https://fr0gan.github.io/portfolio/lab/), newest first.
+
 ## Run it locally
 
 Any static file server works. From the repository root:
@@ -38,6 +40,9 @@ images/projects/      Project screenshots used on the homepage
 projects/
   projects.css        Shared styles for every project page (light and dark themes)
   <project>/index.html  Each project is a single self-contained page
+lab/
+  index.html          List of Lab experiments
+  <experiment>/index.html  Each experiment is a single page using projects/projects.css
 ```
 
 ## Conventions

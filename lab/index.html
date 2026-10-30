@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lab | Logan Loftus</title>
+  <meta name="description" content="Small web tools and experiments by Logan Loftus, built from scratch in HTML, CSS and JavaScript." />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../projects/projects.css" />
+  <style>
+    .experiments { list-style: none; }
+    .experiment {
+      display: grid;
+      grid-template-columns: 8.5em minmax(0, 1fr);
+      gap: 4px 24px;
+      padding: 20px 0;
+      border-top: 1px solid var(--border);
+    }
+    .experiment:first-child { border-top: 0; padding-top: 4px; }
+    .experiment time { padding-top: 3px; color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; }
+    .experiment h2 { font-family: var(--font-head); font-size: 1.2rem; }
+    .experiment h2 a { text-decoration: none; }
+    .experiment h2 a:hover { color: var(--accent); }
+    .experiment p { max-width: 62ch; margin-top: 4px; color: var(--muted); }
+    @media (max-width: 520px) {
+      .experiment { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Lab</h1>
+      <p>Small tools and experiments, built from scratch in plain HTML, CSS and JavaScript. They're smaller than the main projects and newest first.</p>
+    </div>
+
+    <ol class="experiments" reversed>
+      <li class="experiment">
+        <time datetime="2026-10-30">Oct 30, 2026</time>
+        <div>
+          <h2><a href="focus-timer/index.html">Focus Timer</a></h2>
+          <p>A Pomodoro-style timer with short and long breaks, custom durations, an optional chime and a daily session count. Uses timestamps so it stays accurate in background tabs.</p>
+        </div>
+      </li>
+    </ol>
+  </main>
+</body>
+</html>

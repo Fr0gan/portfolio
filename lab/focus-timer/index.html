@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus Timer | Logan Loftus</title>
+  <meta name="description" content="A Pomodoro-style focus timer with short and long breaks, custom durations and a daily session count." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .timer {
+      display: grid;
+      justify-items: center;
+      gap: 22px;
+      padding: clamp(24px, 5vw, 40px) 20px;
+    }
+    .dial { position: relative; width: min(100%, 300px); aspect-ratio: 1; }
+    .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .dial__track { fill: none; stroke: var(--surface-2); stroke-width: 10; }
+    .dial__progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.25s linear;
+    }
+    .timer[data-mode="short"] .dial__progress,
+    .timer[data-mode="long"] .dial__progress { stroke: var(--success); }
+    .dial__readout {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 4px;
+    }
+    .dial__time {
+      font-family: var(--font-head);
+      font-size: clamp(3rem, 14vw, 4.25rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .dial__mode { color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .controls .btn--primary { min-width: 120px; }
+    .message { min-height: 1.6em; color: var(--muted); text-align: center; }
+
+    .settings { margin-top: 16px; }
+    .settings summary { font-family: var(--font-head); font-size: 1.05rem; font-weight: 600; cursor: pointer; }
+    .settings__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .settings label { display: grid; gap: 6px; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .settings input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .settings input[type="number"]:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .settings .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Focus Timer</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Focus Timer</h1>
+      <p>Work in focused blocks with short breaks between them, and a longer break after every few sessions. The timer keeps accurate time even if you switch tabs.</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="segmented" role="group" aria-label="Timer mode">
+        <button type="button" data-mode="focus" aria-pressed="true">Focus</button>
+        <button type="button" data-mode="short" aria-pressed="false">Short break</button>
+        <button type="button" data-mode="long" aria-pressed="false">Long break</button>
+      </div>
+    </div>
+
+    <section class="panel timer" id="timer" data-mode="focus" aria-label="Timer">
+      <div class="dial">
+        <svg viewBox="0 0 260 260" aria-hidden="true">
+          <circle class="dial__track" cx="130" cy="130" r="120" />
+          <circle class="dial__progress" id="progress" cx="130" cy="130" r="120" />
+        </svg>
+        <div class="dial__readout">
+          <span class="dial__time" id="time" role="timer" aria-label="Time remaining">25:00</span>
+          <span class="dial__mode" id="mode-label">Focus</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn--primary" id="start" type="button">Start</button>
+        <button class="btn" id="reset" type="button">Reset</button>
+        <button class="btn" id="skip" type="button">Skip</button>
+      </div>
+      <p class="message" id="message" role="status" aria-live="polite">Press Start or the space bar to begin.</p>
+    </section>
+
+    <div class="hud" style="margin-top: 16px">
+      <div class="stat"><span class="stat__label">Sessions today</span><span class="stat__value" id="stat-sessions">0</span></div>
+      <div class="stat"><span class="stat__label">Focus time today</span><span class="stat__value" id="stat-minutes">0 min</span></div>
+      <div class="stat"><span class="stat__label">Long break in</span><span class="stat__value" id="stat-until">4 sessions</span></div>
+    </div>
+
+    <details class="panel settings">
+      <summary>Settings</summary>
+      <div class="settings__grid">
+        <label>Focus (minutes)<input id="set-focus" type="number" min="1" max="120" /></label>
+        <label>Short break (minutes)<input id="set-short" type="number" min="1" max="60" /></label>
+        <label>Long break (minutes)<input id="set-long" type="number" min="1" max="60" /></label>
+        <label>Sessions before a long break<input id="set-every" type="number" min="2" max="10" /></label>
+        <label class="check"><input id="set-sound" type="checkbox" /> Play a chime when time is up</label>
+      </div>
+    </details>
+
+    <p class="footnote">A Lab experiment. Timing is based on timestamps rather than counting ticks, so background tabs don't drift. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/focus-timer" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const DEFAULTS = { focus: 25, short: 5, long: 15, every: 4, sound: true };
+    const LABELS = { focus: 'Focus', short: 'Short break', long: 'Long break' };
+    const SETTINGS_KEY = 'focus-timer-settings';
+    const STATS_KEY = 'focus-timer-stats';
+    const RADIUS = 120;
+    const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+    const store = {
+      get(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+      set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const timerEl = $('timer');
+    const timeEl = $('time');
+    const progress = $('progress');
+    const startBtn = $('start');
+    const message = $('message');
+    const modeButtons = document.querySelectorAll('button[data-mode]');
+    const inputs = { focus: $('set-focus'), short: $('set-short'), long: $('set-long'), every: $('set-every') };
+
+    let settings = { ...DEFAULTS, ...(store.get(SETTINGS_KEY) || {}) };
+    let stats = store.get(STATS_KEY);
+    if (!stats || stats.date !== todayKey()) stats = { date: todayKey(), sessions: 0, minutes: 0, streak: 0 };
+
+    let mode = 'focus';
+    let remaining = settings.focus * 60000;
+    let endAt = 0;
+    let ticker = 0;
+    let audio = null;
+
+    progress.style.strokeDasharray = String(CIRCUMFERENCE);
+
+    const duration = (m = mode) => settings[m] * 60000;
+    const format = (ms) => {
+      const total = Math.ceil(Math.max(0, ms) / 1000);
+      return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+    };
+
+    function render() {
+      const text = format(remaining);
+      timeEl.textContent = text;
+      timeEl.setAttribute('aria-label', `${Math.ceil(remaining / 60000)} minutes remaining`);
+      $('mode-label').textContent = LABELS[mode];
+      timerEl.dataset.mode = mode;
+      const fraction = 1 - remaining / duration();
+      progress.style.strokeDashoffset = String(CIRCUMFERENCE * Math.min(1, Math.max(0, fraction)));
+      startBtn.textContent = ticker ? 'Pause' : remaining < duration() ? 'Resume' : 'Start';
+      modeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+      document.title = ticker ? `${text} · ${LABELS[mode]}` : 'Focus Timer | Logan Loftus';
+
+      if (stats.date !== todayKey()) stats = { date: todayKey(), sessions: 0, minutes: 0, streak: 0 };
+      $('stat-sessions').textContent = stats.sessions;
+      $('stat-minutes').textContent = stats.minutes >= 60 ? `${Math.floor(stats.minutes / 60)} h ${stats.minutes % 60} min` : `${stats.minutes} min`;
+      const until = settings.every - (stats.streak % settings.every);
+      $('stat-until').textContent = `${until} ${until === 1 ? 'session' : 'sessions'}`;
+    }
+
+    function tick() {
+      remaining = endAt - Date.now();
+      if (remaining <= 0) complete();
+      else render();
+    }
+
+    function start() {
+      if (ticker) return;
+      if (settings.sound && !audio && 'AudioContext' in window) audio = new AudioContext();
+      endAt = Date.now() + remaining;
+      ticker = setInterval(tick, 250);
+      message.textContent = mode === 'focus' ? 'Focusing. Pause any time with the space bar.' : 'On a break. Step away from the screen.';
+      render();
+    }
+
+    function pause() {
+      if (!ticker) return;
+      clearInterval(ticker);
+      ticker = 0;
+      remaining = Math.max(0, endAt - Date.now());
+      message.textContent = 'Paused.';
+      render();
+    }
+
+    function setMode(next, note) {
+      clearInterval(ticker);
+      ticker = 0;
+      mode = next;
+      remaining = duration();
+      if (note) message.textContent = note;
+      render();
+    }
+
+    function chime() {
+      if (!settings.sound || !audio) return;
+      [0, 0.25, 0.5].forEach((offset, i) => {
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.frequency.value = [660, 880, 990][i];
+        gain.gain.setValueAtTime(0.0001, audio.currentTime + offset);
+        gain.gain.exponentialRampToValueAtTime(0.2, audio.currentTime + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + offset + 0.22);
+        osc.connect(gain).connect(audio.destination);
+        osc.start(audio.currentTime + offset);
+        osc.stop(audio.currentTime + offset + 0.25);
+      });
+    }
+
+    function complete() {
+      chime();
+      if (mode === 'focus') {
+        stats.sessions += 1;
+        stats.minutes += settings.focus;
+        stats.streak += 1;
+        store.set(STATS_KEY, stats);
+        const longNext = stats.streak % settings.every === 0;
+        setMode(longNext ? 'long' : 'short', longNext
+          ? 'Focus session complete. You earned a long break.'
+          : 'Focus session complete. Time for a short break.');
+      } else {
+        setMode('focus', 'Break over. Ready for the next focus session?');
+      }
+    }
+
+    startBtn.addEventListener('click', () => (ticker ? pause() : start()));
+    $('reset').addEventListener('click', () => setMode(mode, 'Timer reset.'));
+    $('skip').addEventListener('click', () => {
+      if (mode === 'focus') setMode(stats.streak % settings.every === settings.every - 1 ? 'long' : 'short', 'Skipped to the break. Skipped sessions are not counted.');
+      else setMode('focus', 'Skipped the rest of the break.');
+    });
+    modeButtons.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode, `${LABELS[b.dataset.mode]} selected.`)));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      if (e.target.closest('button, input, summary, a, select, textarea')) return;
+      e.preventDefault();
+      ticker ? pause() : start();
+    });
+
+    Object.entries(inputs).forEach(([key, input]) => {
+      input.value = settings[key];
+      input.addEventListener('change', () => {
+        const before = settings[key] * 60000;
+        const min = Number(input.min);
+        const max = Number(input.max);
+        settings[key] = Math.min(max, Math.max(min, Math.round(Number(input.value) || DEFAULTS[key])));
+        input.value = settings[key];
+        store.set(SETTINGS_KEY, settings);
+        // An unstarted timer takes the new length; a paused one keeps its progress
+        if (key === mode && !ticker) remaining = remaining >= before ? duration() : Math.min(remaining, duration());
+        render();
+      });
+    });
+    const sound = $('set-sound');
+    sound.checked = settings.sound;
+    sound.addEventListener('change', () => {
+      settings.sound = sound.checked;
+      store.set(SETTINGS_KEY, settings);
+    });
+
+    remaining = duration();
+    render();
+  })();
+  </script>
+</body>
+</html>
