@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found | Logan Loftus</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)" />
+  <!-- GitHub Pages serves this file for missing URLs at any depth, so every link is root-relative -->
+  <link rel="icon" href="/portfolio/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/portfolio/style.css" />
+  <style>
+    .not-found { padding-block: clamp(72px, 12vw, 136px); }
+    .not-found h1 { margin: 14px 0 16px; font-size: clamp(2.5rem, 7vw, 4rem); }
+    .not-found__lead { max-width: 56ch; color: var(--muted); font-size: 1.15rem; }
+    .not-found__lead:empty { display: none; }
+    .not-found__note { max-width: 56ch; margin-top: 12px; color: var(--text); }
+    .not-found .intro__actions { margin-top: 28px; }
+    .not-found__list { display: grid; gap: 6px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); list-style: none; }
+    .not-found__list a { color: var(--accent); text-decoration: none; }
+    .not-found__list a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="wordmark" href="/portfolio/">Logan Loftus</a>
+    </div>
+  </header>
+
+  <main class="not-found">
+    <div class="container">
+      <p class="label">Error 404</p>
+      <h1>Page not found</h1>
+      <p class="not-found__lead">The page you're looking for doesn't exist or has moved. Here are some places to go instead.</p>
+      <p class="not-found__note" id="retired" hidden>This project has been retired. Its source is still available in the repository's history on GitHub.</p>
+      <div class="intro__actions">
+        <a class="btn btn--primary" href="/portfolio/">Go to the homepage</a>
+        <a class="btn" href="/portfolio/#projects">See all projects</a>
+      </div>
+      <ul class="not-found__list" aria-label="Current projects">
+        <li><a href="/portfolio/projects/weather/">Weather</a></li>
+        <li><a href="/portfolio/projects/budget-tracker/">Budget Tracker</a></li>
+        <li><a href="/portfolio/projects/cedar-and-cairn/">Cedar &amp; Cairn</a></li>
+        <li><a href="/portfolio/projects/contrast-checker/">Contrast Checker</a></li>
+        <li><a href="/portfolio/projects/pixel-studio/">Pixel Studio</a></li>
+        <li><a href="/portfolio/projects/typing-test/">Speed Typer</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <script>
+    // Old links to the retired browser games get a specific explanation
+    if (/\/projects\/(slime-blaster|samurai-duel|memory-match)(\/|$)/.test(location.pathname)) {
+      document.getElementById('retired').hidden = false;
+    }
+  </script>
+</body>
+</html>
