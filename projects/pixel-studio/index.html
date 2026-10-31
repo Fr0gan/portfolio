@@ -152,9 +152,12 @@
   <script>
   (() => {
     const PALETTE = [
-      '#0b0b14', '#1d2b53', '#2f4dff', '#29adff', '#00e5ff', '#3dff8b', '#008751', '#ffe14d',
-      '#ffa300', '#ff4d6d', '#ff3ec8', '#7e2553', '#ab5236', '#c2c3c7', '#ffccaa', '#ffffff',
+      ['#0b0b14', 'Ink black'], ['#1d2b53', 'Navy'], ['#2f4dff', 'Blob blue'], ['#29adff', 'Sky blue'],
+      ['#00e5ff', 'Cyan'], ['#3dff8b', 'Mint green'], ['#008751', 'Forest green'], ['#ffe14d', 'Yellow'],
+      ['#ffa300', 'Orange'], ['#ff4d6d', 'Red'], ['#ff3ec8', 'Pink'], ['#7e2553', 'Plum'],
+      ['#ab5236', 'Brown'], ['#c2c3c7', 'Light gray'], ['#ffccaa', 'Peach'], ['#ffffff', 'White'],
     ];
+    const PALETTE_COLUMNS = 8;
     const BLOB_ART = [
       '................',
       '.....OOOOOO.....',
@@ -396,22 +399,45 @@
     function setColor(value) {
       color = value.toLowerCase();
       customInput.value = color;
-      paletteEl.querySelectorAll('.swatch').forEach((s) => s.setAttribute('aria-checked', String(s.dataset.color === color)));
+      const swatches = [...paletteEl.querySelectorAll('.swatch')];
+      swatches.forEach((s) => s.setAttribute('aria-checked', String(s.dataset.color === color)));
+      // Roving tabindex: one tab stop for the whole palette, on the selected color
+      const selected = swatches.find((s) => s.dataset.color === color) || swatches[0];
+      swatches.forEach((s) => { s.tabIndex = s === selected ? 0 : -1; });
     }
 
-    PALETTE.forEach((value) => {
+    function pickSwatch(value) {
+      setColor(value);
+      if (tool === 'eraser' || tool === 'picker') setTool('pencil');
+    }
+
+    PALETTE.forEach(([value, name]) => {
       const swatch = document.createElement('button');
       swatch.type = 'button';
       swatch.className = 'swatch';
       swatch.dataset.color = value;
       swatch.style.background = value;
+      swatch.title = `${name} (${value})`;
       swatch.setAttribute('role', 'radio');
-      swatch.setAttribute('aria-label', value);
-      swatch.addEventListener('click', () => {
-        setColor(value);
-        if (tool === 'eraser' || tool === 'picker') setTool('pencil');
-      });
+      swatch.setAttribute('aria-label', name);
+      swatch.addEventListener('click', () => pickSwatch(value));
       paletteEl.appendChild(swatch);
+    });
+
+    // Arrow keys move through the palette grid, as in a standard radio group
+    paletteEl.addEventListener('keydown', (e) => {
+      const swatches = [...paletteEl.querySelectorAll('.swatch')];
+      const current = swatches.indexOf(document.activeElement);
+      if (current < 0) return;
+      const moves = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: PALETTE_COLUMNS, ArrowUp: -PALETTE_COLUMNS };
+      let next;
+      if (e.key in moves) next = (current + moves[e.key] + swatches.length) % swatches.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = swatches.length - 1;
+      else return;
+      e.preventDefault();
+      pickSwatch(swatches[next].dataset.color);
+      swatches[next].focus();
     });
 
     toolButtons.forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));

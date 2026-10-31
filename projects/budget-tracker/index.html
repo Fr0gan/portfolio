@@ -119,6 +119,20 @@
     }
     .tx__delete:hover { background: var(--surface-2); color: var(--danger); }
     .empty { padding: 24px 0 8px; color: var(--muted); text-align: center; }
+    .undo {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 16px;
+      margin-top: 12px;
+      padding: 8px 8px 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      font-size: 0.92rem;
+    }
+    .undo__text { min-width: 0; overflow-wrap: anywhere; }
 
     @media (max-width: 820px) {
       .layout { grid-template-columns: 1fr; }
@@ -207,6 +221,10 @@
         </div>
         <ul class="tx-list" id="tx-list"></ul>
         <p class="empty" id="tx-empty" hidden>No transactions for this month yet. Add one with the form.</p>
+        <div class="undo" id="undo" role="status" hidden>
+          <span class="undo__text" id="undo-text"></span>
+          <button class="btn" id="undo-btn" type="button">Undo</button>
+        </div>
       </section>
     </div>
 
@@ -425,15 +443,54 @@
         del.className = 'tx__delete';
         del.textContent = '×';
         del.setAttribute('aria-label', `Delete ${t.desc}, ${money.format(t.amount)}`);
-        del.addEventListener('click', () => {
-          state.transactions = state.transactions.filter((x) => x.id !== t.id);
-          save();
-          render();
-        });
+        del.addEventListener('click', () => deleteTransaction(t));
         li.append(info, amount, del);
         list.append(li);
       });
     }
+
+    /* ---------- Delete with undo ---------- */
+    const undoBar = $('undo');
+    let lastDeleted = null;
+    let undoTimer = 0;
+
+    function deleteTransaction(t) {
+      const rows = [...$('tx-list').querySelectorAll('.tx__delete')];
+      const position = rows.findIndex((b) => b.getAttribute('aria-label') === `Delete ${t.desc}, ${money.format(t.amount)}`);
+      const index = state.transactions.findIndex((x) => x.id === t.id);
+      state.transactions.splice(index, 1);
+      lastDeleted = { transaction: t, index };
+      save();
+      render();
+
+      $('undo-text').textContent = `Deleted “${t.desc}” (${money.format(t.amount)}).`;
+      undoBar.hidden = false;
+      clearTimeout(undoTimer);
+      undoTimer = setTimeout(hideUndo, 8000);
+
+      // Keep keyboard focus in the list: move to the row that took this one's place
+      const remaining = $('tx-list').querySelectorAll('.tx__delete');
+      (remaining[Math.min(Math.max(position, 0), remaining.length - 1)] || $('undo-btn')).focus();
+    }
+
+    function hideUndo() {
+      undoBar.hidden = true;
+      lastDeleted = null;
+    }
+
+    $('undo-btn').addEventListener('click', () => {
+      if (!lastDeleted) return;
+      const { transaction, index } = lastDeleted;
+      state.transactions.splice(Math.min(index, state.transactions.length), 0, transaction);
+      viewMonth = transaction.date.slice(0, 7);
+      clearTimeout(undoTimer);
+      hideUndo();
+      save();
+      render();
+      const restored = [...$('tx-list').querySelectorAll('.tx__delete')]
+        .find((b) => b.getAttribute('aria-label') === `Delete ${transaction.desc}, ${money.format(transaction.amount)}`);
+      if (restored) restored.focus();
+    });
 
     /* ---------- Events ---------- */
     typeButtons.forEach((button) => {
@@ -471,6 +528,8 @@
     filterSelect.addEventListener('change', () => { filter = filterSelect.value; render(); });
 
     $('clear-sample').addEventListener('click', () => {
+      clearTimeout(undoTimer);
+      hideUndo();
       state = { transactions: [], budgets: { ...state.budgets }, sample: false };
       save();
       render();
