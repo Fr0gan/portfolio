@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Generator | Logan Loftus</title>
+  <meta name="description" content="Generate strong passwords or memorable passphrases in your browser with a cryptographically secure random number generator." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .layout { display: grid; gap: 16px; max-width: 760px; }
+    .panel__title { margin-bottom: 14px; font-family: var(--font-head); font-size: 1.1rem; }
+
+    .result { display: grid; gap: 16px; }
+    .result__value {
+      display: block;
+      min-height: 2.4em;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      font-family: var(--font-mono);
+      font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      user-select: all;
+    }
+    .result__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .result__status { min-height: 1.4em; color: var(--muted); font-size: 0.92rem; }
+
+    .meter { display: grid; gap: 6px; }
+    .meter__top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.92rem; }
+    .meter__label { font-weight: 600; }
+    .meter__bits { color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; }
+    .meter__bar { height: 8px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+    .meter__fill { width: 0; height: 100%; border-radius: inherit; background: var(--danger); transition: width 0.25s, background-color 0.25s; }
+    .meter[data-level="fair"] .meter__fill { background: var(--warning); }
+    .meter[data-level="strong"] .meter__fill,
+    .meter[data-level="very-strong"] .meter__fill { background: var(--success); }
+    .meter[data-level="weak"] .meter__label { color: var(--danger); }
+    .meter[data-level="fair"] .meter__label { color: var(--warning); }
+    .meter[data-level="strong"] .meter__label,
+    .meter[data-level="very-strong"] .meter__label { color: var(--success); }
+
+    .options { display: grid; gap: 16px; }
+    .range { display: grid; gap: 8px; }
+    .range__top { display: flex; justify-content: space-between; gap: 12px; font-weight: 500; }
+    .range__top output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .range input { width: 100%; }
+    .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; }
+    .check { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .check small { color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+    .check--wide { grid-column: 1 / -1; }
+    .field { justify-self: start; }
+    .options__note { min-height: 1.4em; color: var(--warning); font-size: 0.9rem; }
+
+    .how { color: var(--muted); }
+    .how p + p { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Password Generator</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Password Generator</h1>
+      <p>Create a strong random password, or a passphrase made of words that's easier to type and remember. Everything happens on your device. Nothing is sent anywhere or saved.</p>
+    </div>
+
+    <div class="layout">
+      <section class="panel result" aria-labelledby="result-title">
+        <h2 class="visually-hidden" id="result-title" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Generated password</h2>
+        <output class="result__value" id="result" aria-live="polite"></output>
+        <div class="meter" id="meter" data-level="weak">
+          <div class="meter__top">
+            <span class="meter__label" id="meter-label">—</span>
+            <span class="meter__bits" id="meter-bits"></span>
+          </div>
+          <div class="meter__bar" aria-hidden="true"><div class="meter__fill" id="meter-fill"></div></div>
+        </div>
+        <div class="result__actions">
+          <button class="btn btn--primary" id="copy" type="button">Copy</button>
+          <button class="btn" id="regenerate" type="button">Generate another</button>
+        </div>
+        <p class="result__status" id="status" role="status"></p>
+      </section>
+
+      <div class="toolbar" style="margin: 0">
+        <div class="segmented" role="group" aria-label="Type">
+          <button type="button" data-kind="password" aria-pressed="true">Password</button>
+          <button type="button" data-kind="passphrase" aria-pressed="false">Passphrase</button>
+        </div>
+      </div>
+
+      <section class="panel options" id="password-options" aria-label="Password options">
+        <div class="range">
+          <label class="range__top" for="length">Length <output id="length-value" for="length">20</output></label>
+          <input id="length" type="range" min="8" max="64" value="20" />
+        </div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="use-lower" checked /> Lowercase <small>a–z</small></label>
+          <label class="check"><input type="checkbox" id="use-upper" checked /> Uppercase <small>A–Z</small></label>
+          <label class="check"><input type="checkbox" id="use-digits" checked /> Numbers <small>0–9</small></label>
+          <label class="check"><input type="checkbox" id="use-symbols" checked /> Symbols <small>!@#$%</small></label>
+          <label class="check check--wide"><input type="checkbox" id="no-ambiguous" /> Avoid look-alikes <small>I l 1 O 0</small></label>
+        </div>
+        <p class="options__note" id="password-note" role="status"></p>
+      </section>
+
+      <section class="panel options" id="passphrase-options" aria-label="Passphrase options" hidden>
+        <div class="range">
+          <label class="range__top" for="words">Words <output id="words-value" for="words">7</output></label>
+          <input id="words" type="range" min="3" max="12" value="7" />
+        </div>
+        <label class="field">Separator
+          <select class="select" id="separator">
+            <option value="-">Hyphen ( - )</option>
+            <option value=" ">Space</option>
+            <option value=".">Period ( . )</option>
+            <option value="_">Underscore ( _ )</option>
+          </select>
+        </label>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="capitalize" checked /> Capitalize words</label>
+          <label class="check"><input type="checkbox" id="add-number" checked /> Add a number</label>
+        </div>
+      </section>
+
+      <section class="panel how" aria-labelledby="how-title">
+        <h2 class="panel__title" id="how-title">How it works</h2>
+        <p>Every character or word is picked with <code>crypto.getRandomValues</code>, the browser's cryptographically secure random number generator, using rejection sampling so no choice is more likely than another.</p>
+        <p>Strength is shown in bits of entropy: the number of yes-or-no guesses an attacker would need in the worst case. Each extra bit doubles the work. Aim for at least 60 bits, and use a password manager so you don't have to remember them.</p>
+      </section>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/password-generator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const SETS = {
+      lower: 'abcdefghijklmnopqrstuvwxyz',
+      upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+      digits: '0123456789',
+      symbols: '!@#$%^&*()-_=+[]{};:,.?/~',
+    };
+    const AMBIGUOUS = /[Il1O0|]/g;
+    const WORDS = [...new Set(`
+      acorn actor agent alarm album alley amber anchor angle apple apron arena arrow atlas attic autumn award
+      badge bagel baker bamboo banjo barn basil basket beach beacon beard berry bison blade blanket blossom board boat
+      bonus border bottle branch bread brick bridge brook brush bucket buffalo bundle butter button
+      cabin cactus camel camera canal candle canoe canyon carpet castle cedar cello chalk cherry chess cider circle cliff
+      clock cloud clover coast cobalt comet copper coral cotton cougar crane crayon cricket crystal cyclone
+      daisy dancer delta denim desert diesel dinner dolphin donkey dragon drift drum
+      eagle easel echo elbow ember engine espresso
+      fabric falcon feather fence fern ferry fiddle field figure filter finch flame flannel flute forest fossil fountain fox frost
+      galaxy garden garlic gazelle gecko geyser ginger glacier globe goose granite grape gravel guitar gull
+      habit hammer harbor harvest hazel helmet heron hiker hollow honey horizon hornet hotel
+      iceberg icicle igloo island ivory
+      jacket jaguar jasmine jelly jigsaw jungle juniper
+      kayak kernel kettle kitten kiwi knight
+      ladder lagoon lantern laptop lemon lentil lily linen lizard llama lobster locket lotus lumber
+      magnet mango maple marble meadow melon meteor mint mirror mitten modem monsoon mosaic motor muffin museum
+      napkin nectar needle nickel noodle north nugget nutmeg
+      oasis ocean octave olive onion orbit orchid otter oyster
+      paddle palace panda paper parcel parrot pasta pebble pencil pepper piano pickle pigeon pillow pilot pine pirate
+      planet plaza pocket pollen pony poppy potato prairie prism puzzle
+      quail quartz quill quiver
+      rabbit radar radish raft rain raven recipe reef ribbon ridge river robin rocket rose ruby
+      saddle saffron salmon sandal saturn scarf shadow shell shovel signal silver sketch sled slope socket sonnet spark
+      sparrow spider spoon spruce squash stable stamp stone storm stream sugar summit sunset swan
+      table tablet tango teapot temple tennis thistle thunder ticket tiger timber toast tomato tonic torch tower tractor
+      trail trumpet tulip tundra turtle
+      umbrella unicorn urchin
+      valley vanilla velvet violet violin visor volcano voyage
+      wagon walnut walrus wasabi water wave wheat whistle willow window winter wizard wombat
+      yacht yarrow yogurt
+      zebra zenith zephyr zigzag zinc
+    `.trim().split(/\s+/))];
+
+    // Uniform random integer in [0, max) without modulo bias
+    function randomInt(max) {
+      const limit = Math.floor(0x100000000 / max) * max;
+      const buffer = new Uint32Array(1);
+      do crypto.getRandomValues(buffer); while (buffer[0] >= limit);
+      return buffer[0] % max;
+    }
+    const pick = (list) => list[randomInt(list.length)];
+    function shuffle(items) {
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+      return items;
+    }
+
+    const $ = (id) => document.getElementById(id);
+    const kindButtons = document.querySelectorAll('[data-kind]');
+    const setInputs = { lower: $('use-lower'), upper: $('use-upper'), digits: $('use-digits'), symbols: $('use-symbols') };
+    let kind = 'password';
+
+    function generatePassword() {
+      const avoid = $('no-ambiguous').checked;
+      const sets = Object.entries(setInputs)
+        .filter(([, input]) => input.checked)
+        .map(([name]) => (avoid ? SETS[name].replace(AMBIGUOUS, '') : SETS[name]));
+      const pool = sets.join('');
+      const length = Number($('length').value);
+      // Guarantee one character from each chosen type, then fill and shuffle
+      const chars = sets.map((set) => pick(set));
+      while (chars.length < length) chars.push(pick(pool));
+      return { value: shuffle(chars).join(''), bits: length * Math.log2(pool.length) };
+    }
+
+    function generatePassphrase() {
+      const count = Number($('words').value);
+      const capitalize = $('capitalize').checked;
+      const words = Array.from({ length: count }, () => {
+        const word = pick(WORDS);
+        return capitalize ? word[0].toUpperCase() + word.slice(1) : word;
+      });
+      let bits = count * Math.log2(WORDS.length);
+      if ($('add-number').checked) {
+        words[randomInt(words.length)] += String(randomInt(10));
+        bits += Math.log2(10) + Math.log2(count);
+      }
+      return { value: words.join($('separator').value), bits };
+    }
+
+    function strength(bits) {
+      if (bits < 40) return ['weak', 'Weak'];
+      if (bits < 60) return ['fair', 'Fair'];
+      if (bits < 80) return ['strong', 'Strong'];
+      return ['very-strong', 'Very strong'];
+    }
+
+    function generate() {
+      const { value, bits } = kind === 'password' ? generatePassword() : generatePassphrase();
+      $('result').textContent = value;
+      const [level, label] = strength(bits);
+      const meter = $('meter');
+      meter.dataset.level = level;
+      $('meter-label').textContent = label;
+      $('meter-bits').textContent = `about ${Math.floor(bits)} bits · ${value.length} characters`;
+      $('meter-fill').style.width = `${Math.min(100, (bits / 128) * 100)}%`;
+      $('status').textContent = '';
+    }
+
+    $('copy').addEventListener('click', async () => {
+      const text = $('result').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        $('status').textContent = 'Copied to the clipboard.';
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents($('result'));
+        const selection = getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        $('status').textContent = 'Press Ctrl+C (or Cmd+C) to copy the selected text.';
+      }
+    });
+    $('regenerate').addEventListener('click', generate);
+
+    kindButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        kind = button.dataset.kind;
+        kindButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        $('password-options').hidden = kind !== 'password';
+        $('passphrase-options').hidden = kind !== 'passphrase';
+        generate();
+      });
+    });
+
+    $('length').addEventListener('input', () => { $('length-value').textContent = $('length').value; generate(); });
+    $('words').addEventListener('input', () => { $('words-value').textContent = $('words').value; generate(); });
+    Object.values(setInputs).forEach((input) => {
+      input.addEventListener('change', () => {
+        // At least one character type has to stay on
+        if (!Object.values(setInputs).some((i) => i.checked)) {
+          input.checked = true;
+          $('password-note').textContent = 'Keep at least one character type selected.';
+        } else {
+          $('password-note').textContent = '';
+        }
+        generate();
+      });
+    });
+    ['no-ambiguous', 'separator', 'capitalize', 'add-number'].forEach((id) => $(id).addEventListener('change', generate));
+
+    generate();
+  })();
+  </script>
+</body>
+</html>
