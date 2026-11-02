@@ -57,7 +57,8 @@
     }
     .color-input input[aria-invalid="true"] { color: var(--danger); }
     .colors { display: grid; gap: 12px; }
-    .swap { justify-self: start; }
+    .color-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .share-status { min-height: 1.4em; color: var(--muted); font-size: 0.9rem; }
 
     .ratio { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 4px 0 16px; }
     .ratio__value { font-family: var(--font-head); font-size: clamp(2.6rem, 7vw, 3.4rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -175,7 +176,11 @@
                 <input type="text" id="bg-hex" spellcheck="false" autocomplete="off" maxlength="7" aria-label="Background color hex code" />
               </span>
             </label>
-            <button class="btn swap" id="swap" type="button">⇅ Swap colors</button>
+            <div class="color-actions">
+              <button class="btn" id="swap" type="button">⇅ Swap colors</button>
+              <button class="btn" id="share" type="button">Copy link</button>
+            </div>
+            <p class="share-status" id="share-status" role="status"></p>
           </div>
         </section>
 
@@ -414,6 +419,15 @@
       input.addEventListener('blur', () => { input.value = (which === 'fg' ? fg : bg).toUpperCase(); input.removeAttribute('aria-invalid'); });
     });
     $('swap').addEventListener('click', () => setColors(bg, fg));
+    $('share').addEventListener('click', async () => {
+      const status = $('share-status');
+      try {
+        await navigator.clipboard.writeText(location.href);
+        status.textContent = 'Link copied. Anyone who opens it sees these two colors.';
+      } catch {
+        status.textContent = `Couldn't copy automatically. The link is ${location.href}`;
+      }
+    });
 
     window.addEventListener('hashchange', () => {
       const next = readHash();
