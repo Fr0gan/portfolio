@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Counter | Logan Loftus</title>
+  <meta name="description" content="Count words, characters, sentences and paragraphs, with reading time, a word goal and your most-used words." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+      align-items: start;
+      gap: 16px;
+    }
+    .col { display: grid; gap: 16px; }
+    .panel__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.1rem; }
+
+    .editor textarea {
+      display: block;
+      width: 100%;
+      min-height: 22rem;
+      padding: 14px 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 1.02rem;
+      line-height: 1.7;
+      resize: vertical;
+    }
+    .editor textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .editor__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .editor__note { margin-top: 10px; color: var(--muted); font-size: 0.88rem; }
+
+    .details { display: grid; gap: 0; }
+    .details div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+    .details div:first-child { border-top: 0; padding-top: 0; }
+    .details dt { color: var(--muted); }
+    .details dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+    .goal { display: grid; gap: 10px; }
+    .goal label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-weight: 500; }
+    .goal input {
+      width: 7em;
+      padding: 6px 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      text-align: right;
+    }
+    .goal input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .bar { height: 8px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+    .bar__fill { width: 0; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.2s; }
+    .goal.is-done .bar__fill { background: var(--success); }
+    .goal__text { color: var(--muted); font-size: 0.9rem; }
+    .goal.is-done .goal__text { color: var(--success); }
+
+    .top-words { display: grid; gap: 6px; list-style: none; }
+    .top-words li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; font-size: 0.95rem; }
+    .top-words span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-words span:last-child { color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; }
+    .top-words .bar { grid-column: 1 / -1; height: 4px; }
+    .empty { color: var(--muted); font-size: 0.92rem; }
+    .top-words:not(:empty) + .empty { margin-top: 12px; }
+
+    .tip { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--warning) 8%, var(--surface)); font-size: 0.92rem; }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .editor textarea { min-height: 14rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Word Counter</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Word Counter</h1>
+      <p>Paste or type your writing to see word and character counts, reading time, and which words you lean on most. Set a word goal for essays and assignments. Your text is saved in this browser only.</p>
+    </div>
+
+    <div class="hud">
+      <div class="stat"><span class="stat__label">Words</span><span class="stat__value" id="s-words">0</span></div>
+      <div class="stat"><span class="stat__label">Characters</span><span class="stat__value" id="s-chars">0</span></div>
+      <div class="stat"><span class="stat__label">Reading time</span><span class="stat__value" id="s-read">0 sec</span></div>
+      <div class="stat"><span class="stat__label">Speaking time</span><span class="stat__value" id="s-speak">0 sec</span></div>
+    </div>
+
+    <div class="layout">
+      <section class="panel editor" aria-labelledby="editor-title">
+        <div class="panel__head">
+          <h2 class="panel__title" id="editor-title">Your text</h2>
+          <div class="editor__actions">
+            <button class="btn" id="copy" type="button">Copy text</button>
+            <button class="btn" id="clear" type="button">Clear</button>
+          </div>
+        </div>
+        <label class="visually-hidden" for="text" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Text to count</label>
+        <textarea id="text" spellcheck="true"></textarea>
+        <p class="editor__note" id="note" role="status"></p>
+      </section>
+
+      <div class="col">
+        <section class="panel" aria-labelledby="details-title">
+          <h2 class="panel__title" id="details-title" style="margin-bottom: 12px">Details</h2>
+          <dl class="details">
+            <div><dt>Characters without spaces</dt><dd id="d-nospace">0</dd></div>
+            <div><dt>Sentences</dt><dd id="d-sentences">0</dd></div>
+            <div><dt>Paragraphs</dt><dd id="d-paragraphs">0</dd></div>
+            <div><dt>Average word length</dt><dd id="d-wordlen">0</dd></div>
+            <div><dt>Average sentence length</dt><dd id="d-sentlen">0 words</dd></div>
+            <div><dt>Longest sentence</dt><dd id="d-longest">0 words</dd></div>
+          </dl>
+          <p class="tip" id="tip" hidden style="margin-top: 12px"></p>
+        </section>
+
+        <section class="panel goal" id="goal" aria-labelledby="goal-title">
+          <h2 class="panel__title" id="goal-title">Word goal</h2>
+          <label>Target words <input id="goal-input" type="number" min="0" step="50" inputmode="numeric" placeholder="None" /></label>
+          <div class="bar" aria-hidden="true"><div class="bar__fill" id="goal-fill"></div></div>
+          <p class="goal__text" id="goal-text">Set a target to track your progress.</p>
+        </section>
+
+        <section class="panel" aria-labelledby="top-title">
+          <h2 class="panel__title" id="top-title" style="margin-bottom: 12px">Most-used words</h2>
+          <ol class="top-words" id="top-words"></ol>
+          <p class="empty" id="top-empty">Common words like "the" and "and" are left out.</p>
+        </section>
+      </div>
+    </div>
+
+    <p class="footnote">A Lab experiment. Words and sentences are split with <code>Intl.Segmenter</code>, which handles contractions and punctuation better than splitting on spaces. Times assume 238 words per minute for reading and 150 for speaking. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/word-counter" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const DRAFT_KEY = 'word-counter-draft';
+    const GOAL_KEY = 'word-counter-goal';
+    const READ_WPM = 238;
+    const SPEAK_WPM = 150;
+    const LONG_SENTENCE = 30;
+    const SAMPLE = `Before any hike, check the trail conditions and the weather forecast, and tell someone where you're going and when you expect to be back. Pack more water than you think you'll need, along with snacks, a map and a warm layer, even on a sunny day.
+
+Start your hike early. Afternoon storms are common in the mountains, and turning around before the summit is always a good option. The trail and the summit will still be there next weekend, and so will the water you didn't drink.`;
+    const STOP_WORDS = new Set(`a about above after again against all also am an and any are as at be because been before being below between both but by can could did do does doing down during each even few for from further had has have having he her here hers herself him himself his how i if in into is it its itself just let me more most my myself no nor not now of off on once only or other our ours ourselves out over own same she should so some such than that the their theirs them themselves then there these they this those through to too under until up us very was we were what when where which while who whom why will with would you your yours yourself yourselves i'm you're it's don't can't won't that's there's i've you'll we're they're`.split(/\s+/));
+
+    const store = {
+      get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+      set(key, value) { try { localStorage.setItem(key, value); } catch { /* storage unavailable */ } },
+    };
+
+    const wordSegmenter = 'Segmenter' in Intl ? new Intl.Segmenter('en', { granularity: 'word' }) : null;
+    const sentenceSegmenter = 'Segmenter' in Intl ? new Intl.Segmenter('en', { granularity: 'sentence' }) : null;
+
+    function words(text) {
+      if (wordSegmenter) return [...wordSegmenter.segment(text)].filter((s) => s.isWordLike).map((s) => s.segment);
+      return text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) || [];
+    }
+    function sentences(text) {
+      const parts = sentenceSegmenter
+        ? [...sentenceSegmenter.segment(text)].map((s) => s.segment)
+        : text.split(/(?<=[.!?])\s+/);
+      return parts.filter((s) => /[\p{L}\p{N}]/u.test(s));
+    }
+
+    function duration(wordCount, wpm) {
+      const seconds = (wordCount / wpm) * 60;
+      if (wordCount === 0) return '0 sec';
+      if (seconds < 60) return `${Math.max(1, Math.round(seconds))} sec`;
+      const minutes = Math.floor(seconds / 60);
+      const rest = Math.round(seconds % 60);
+      return rest && minutes < 10 ? `${minutes} min ${rest} sec` : `${Math.round(seconds / 60)} min`;
+    }
+
+    const $ = (id) => document.getElementById(id);
+    const input = $('text');
+    const goalInput = $('goal-input');
+    const number = new Intl.NumberFormat('en-US');
+    const oneDecimal = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+
+    function render() {
+      const text = input.value;
+      const list = words(text);
+      const sentenceList = sentences(text);
+      const count = list.length;
+
+      $('s-words').textContent = number.format(count);
+      $('s-chars').textContent = number.format([...text].length);
+      $('s-read').textContent = duration(count, READ_WPM);
+      $('s-speak').textContent = duration(count, SPEAK_WPM);
+
+      const sentenceLengths = sentenceList.map((s) => words(s).length);
+      const longest = sentenceLengths.length ? Math.max(...sentenceLengths) : 0;
+      $('d-nospace').textContent = number.format([...text.replace(/\s/g, '')].length);
+      $('d-sentences').textContent = number.format(sentenceList.length);
+      $('d-paragraphs').textContent = number.format(text.split(/\n\s*\n/).filter((p) => p.trim()).length);
+      $('d-wordlen').textContent = count ? `${oneDecimal.format(list.reduce((sum, w) => sum + [...w].length, 0) / count)} letters` : '0';
+      $('d-sentlen').textContent = `${sentenceList.length ? oneDecimal.format(count / sentenceList.length) : 0} words`;
+      $('d-longest').textContent = `${longest} words`;
+
+      const tip = $('tip');
+      tip.hidden = longest <= LONG_SENTENCE;
+      tip.textContent = `Your longest sentence has ${longest} words. Sentences over ${LONG_SENTENCE} words are harder to follow, so consider splitting it.`;
+
+      // Goal
+      const goal = Math.max(0, Math.round(Number(goalInput.value) || 0));
+      const goalEl = $('goal');
+      const fill = $('goal-fill');
+      if (goal > 0) {
+        const ratio = count / goal;
+        fill.style.width = `${Math.min(100, ratio * 100)}%`;
+        goalEl.classList.toggle('is-done', ratio >= 1);
+        $('goal-text').textContent = ratio >= 1
+          ? `Goal reached: ${number.format(count)} of ${number.format(goal)} words${count > goal ? ` (${number.format(count - goal)} over)` : ''}.`
+          : `${number.format(goal - count)} words to go (${Math.floor(ratio * 100)}%).`;
+      } else {
+        fill.style.width = '0';
+        goalEl.classList.remove('is-done');
+        $('goal-text').textContent = 'Set a target to track your progress.';
+      }
+
+      // Most-used words, ignoring very common words
+      const tally = new Map();
+      list.forEach((w) => {
+        const key = w.toLowerCase().replace(/’/g, "'");
+        if (key.length < 3 || STOP_WORDS.has(key) || /^\d+$/.test(key)) return;
+        tally.set(key, (tally.get(key) || 0) + 1);
+      });
+      const top = [...tally.entries()].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+      const topList = $('top-words');
+      topList.innerHTML = '';
+      const max = top.length ? top[0][1] : 1;
+      top.forEach(([word, n]) => {
+        const li = document.createElement('li');
+        const label = document.createElement('span');
+        label.textContent = word;
+        const times = document.createElement('span');
+        times.textContent = `${n}×`;
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.setAttribute('aria-hidden', 'true');
+        bar.innerHTML = `<div class="bar__fill" style="width:${(n / max) * 100}%"></div>`;
+        li.append(label, times, bar);
+        topList.append(li);
+      });
+      $('top-empty').textContent = top.length
+        ? 'Common words like "the" and "and" are left out.'
+        : 'Words you use more than once will show up here. Common words like "the" and "and" are left out.';
+    }
+
+    let saveTimer = 0;
+    input.addEventListener('input', () => {
+      $('note').textContent = '';
+      render();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => store.set(DRAFT_KEY, input.value), 300);
+    });
+    goalInput.addEventListener('input', () => {
+      store.set(GOAL_KEY, goalInput.value);
+      render();
+    });
+
+    $('clear').addEventListener('click', () => {
+      input.value = '';
+      store.set(DRAFT_KEY, '');
+      render();
+      $('note').textContent = 'Cleared.';
+      input.focus();
+    });
+    $('copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(input.value);
+        $('note').textContent = 'Copied to the clipboard.';
+      } catch {
+        input.select();
+        $('note').textContent = 'Press Ctrl+C (or Cmd+C) to copy the selected text.';
+      }
+    });
+
+    const draft = store.get(DRAFT_KEY);
+    if (draft === null) {
+      input.value = SAMPLE;
+      $('note').textContent = 'This is sample text. Clear it or paste over it to start.';
+    } else {
+      input.value = draft;
+    }
+    goalInput.value = store.get(GOAL_KEY) || '';
+    render();
+  })();
+  </script>
+</body>
+</html>
