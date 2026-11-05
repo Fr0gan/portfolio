@@ -185,7 +185,7 @@
       </section>
     </div>
 
-    <p class="footnote">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). Built with plain JavaScript and the Fetch API. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/weather" target="_blank" rel="noopener">View source</a></p>
+    <p class="footnote">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). The forecast refreshes every 30 minutes while this page is open. Built with plain JavaScript and the Fetch API. <a href="https://github.com/Fr0gan/portfolio/tree/main/projects/weather" target="_blank" rel="noopener">View source</a></p>
   </main>
 
   <script>
@@ -272,6 +272,8 @@
     let place = store.get('weather-place') || DEFAULT_PLACE;
     let units = store.get('weather-units') || (/^en-US/i.test(navigator.language) ? 'fahrenheit' : 'celsius');
     let forecastController = null;
+    let loadedAt = 0;
+    const REFRESH_AFTER = 30 * 60 * 1000;
 
     function setStatus(message, { error = false, retry = false } = {}) {
       status.innerHTML = '';
@@ -320,6 +322,7 @@
         const response = await fetch(`${FORECAST_URL}?${params}`, { signal: forecastController.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         render(await response.json());
+        loadedAt = Date.now();
       } catch (err) {
         if (err.name === 'AbortError') return;
         setStatus("Couldn't load the forecast. Check your connection and try again.", { error: true, retry: true });
@@ -533,6 +536,13 @@
         loadForecast(place);
       });
     });
+
+    // Keep an open tab current: refresh every 30 minutes, and on return to a stale tab
+    const refreshIfStale = () => {
+      if (document.visibilityState === 'visible' && loadedAt && Date.now() - loadedAt >= REFRESH_AFTER) loadForecast(place);
+    };
+    setInterval(refreshIfStale, 60 * 1000);
+    document.addEventListener('visibilitychange', refreshIfStale);
 
     updateUnitButtons();
     loadForecast(place);

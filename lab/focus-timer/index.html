@@ -71,6 +71,8 @@
     }
     .settings input[type="number"]:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
     .settings .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .settings__note { grid-column: 1 / -1; color: var(--muted); font-size: 0.88rem; }
+    .settings__note:empty { display: none; }
   </style>
 </head>
 <body>
@@ -126,6 +128,8 @@
         <label>Long break (minutes)<input id="set-long" type="number" min="1" max="60" /></label>
         <label>Sessions before a long break<input id="set-every" type="number" min="2" max="10" /></label>
         <label class="check"><input id="set-sound" type="checkbox" /> Play a chime when time is up</label>
+        <label class="check"><input id="set-notify" type="checkbox" /> Show a notification when time is up</label>
+        <p class="settings__note" id="notify-note" role="status"></p>
       </div>
     </details>
 
@@ -134,7 +138,7 @@
 
   <script>
   (() => {
-    const DEFAULTS = { focus: 25, short: 5, long: 15, every: 4, sound: true };
+    const DEFAULTS = { focus: 25, short: 5, long: 15, every: 4, sound: true, notify: false };
     const LABELS = { focus: 'Focus', short: 'Short break', long: 'Long break' };
     const SETTINGS_KEY = 'focus-timer-settings';
     const STATS_KEY = 'focus-timer-stats';
@@ -245,6 +249,15 @@
       });
     }
 
+    // Only notify when the page isn't in front of you; otherwise the on-page message is enough
+    function notify(title, body) {
+      if (!settings.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+      if (document.visibilityState === 'visible' && document.hasFocus()) return;
+      try {
+        new Notification(title, { body, icon: '../../favicon.svg', tag: 'focus-timer' });
+      } catch { /* some mobile browsers only allow notifications from a service worker */ }
+    }
+
     function complete() {
       chime();
       if (mode === 'focus') {
@@ -253,10 +266,12 @@
         stats.streak += 1;
         store.set(STATS_KEY, stats);
         const longNext = stats.streak % settings.every === 0;
+        notify('Focus session complete', longNext ? 'You earned a long break.' : 'Time for a short break.');
         setMode(longNext ? 'long' : 'short', longNext
           ? 'Focus session complete. You earned a long break.'
           : 'Focus session complete. Time for a short break.');
       } else {
+        notify('Break over', 'Ready for the next focus session?');
         setMode('focus', 'Break over. Ready for the next focus session?');
       }
     }
@@ -295,6 +310,27 @@
     sound.addEventListener('change', () => {
       settings.sound = sound.checked;
       store.set(SETTINGS_KEY, settings);
+    });
+
+    const notifyBox = $('set-notify');
+    const notifyNote = $('notify-note');
+    const supportsNotifications = 'Notification' in window;
+    function setNotify(on, note = '') {
+      settings.notify = on;
+      notifyBox.checked = on;
+      notifyNote.textContent = note;
+      store.set(SETTINGS_KEY, settings);
+    }
+    // A saved "on" only counts if the browser still allows notifications
+    if (settings.notify && (!supportsNotifications || Notification.permission !== 'granted')) setNotify(false);
+    notifyBox.checked = settings.notify;
+    notifyBox.addEventListener('change', async () => {
+      if (!notifyBox.checked) return setNotify(false);
+      if (!supportsNotifications) return setNotify(false, "This browser doesn't support notifications.");
+      let permission = Notification.permission;
+      if (permission === 'default') permission = await Notification.requestPermission();
+      if (permission === 'granted') setNotify(true, "Notifications are on. You'll get one when a session or break ends while this tab is in the background.");
+      else setNotify(false, "Notifications are blocked for this site. You can allow them in your browser's site settings.");
     });
 
     remaining = duration();

@@ -47,6 +47,7 @@ lab/
 
 ## Conventions
 
-- Colors come from the design tokens at the top of `style.css` and `projects/projects.css`. Both define a light theme and a dark theme that follows the visitor's system setting.
+- Colors come from the design tokens at the top of `style.css` and `projects/projects.css`. Both define a light and a dark theme. Pages follow the visitor's system setting unless they pick a theme with the switch in the homepage header; that choice is saved as `theme` in `localStorage`, and each page applies it with a one-line script in `<head>` so there's no flash of the wrong theme. Cedar & Cairn keeps its own fixed brand colors.
+- When adding a Lab experiment, list it in `lab/index.html` and in the "From the Lab" section of `index.html`, newest first.
 - Pages must work at 375px wide without sideways scrolling, and must be usable with a keyboard.
 - Nothing is sent to a server. Projects that save data use `localStorage` in the visitor's browser.
