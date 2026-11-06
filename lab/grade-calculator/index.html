@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Grade Calculator | Logan Loftus</title>
+  <meta name="description" content="Work out your weighted class grade and the score you need on the final exam to reach a target grade." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-items: start;
+      gap: 16px;
+    }
+    .col { display: grid; gap: 16px; }
+    .panel__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.1rem; }
+
+    .rows { display: grid; gap: 8px; list-style: none; }
+    .row, .rows__head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 5.6em 5.6em 32px;
+      align-items: center;
+      gap: 8px;
+    }
+    .rows__head {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .row input {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .row input[type="number"] { font-family: var(--font-mono); text-align: right; }
+    .row input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .row input[aria-invalid="true"] { border-color: var(--danger); }
+    .row__remove {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 6px;
+      background: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .row__remove:hover { background: var(--surface-2); color: var(--danger); }
+    .rows__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .hint { margin-top: 12px; color: var(--muted); font-size: 0.88rem; }
+
+    .grade { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .grade__value { font-family: var(--font-head); font-size: clamp(2.6rem, 8vw, 3.4rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    .grade__letter {
+      padding: 4px 12px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      color: var(--accent);
+      font-family: var(--font-head);
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .grade__note { margin-top: 10px; color: var(--muted); font-size: 0.92rem; }
+    .warning { margin-top: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--warning) 8%, var(--surface)); font-size: 0.92rem; }
+
+    .planner { display: grid; gap: 14px; }
+    .planner__inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .planner label { display: grid; gap: 6px; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .planner input, .planner select {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .planner input:focus, .planner select:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .needed { padding: 14px 16px; border-radius: 10px; background: var(--surface-2); }
+    .needed strong { display: block; font-family: var(--font-head); font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .needed[data-state="safe"] strong { color: var(--success); }
+    .needed[data-state="hard"] strong { color: var(--warning); }
+    .needed[data-state="impossible"] strong { color: var(--danger); }
+    .needed p { margin-top: 4px; color: var(--muted); font-size: 0.92rem; }
+
+    .scale { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; list-style: none; font-family: var(--font-mono); font-size: 0.8rem; }
+    .scale li { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+    .scale li.is-current { border-color: var(--accent); color: var(--text); }
+    .scale b { color: var(--text); }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) {
+      .row, .rows__head { grid-template-columns: minmax(0, 1fr) 4.4em 4.4em 28px; gap: 6px; }
+      .row input { padding: 8px 6px; }
+      .planner__inputs { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Grade Calculator</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Grade Calculator</h1>
+      <p>Enter each part of your class with its weight from the syllabus and your score so far. You'll see your current weighted grade and exactly what you need on the final to reach the grade you want. Your numbers are saved in this browser only.</p>
+    </div>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="rows-title">
+        <div class="panel__head">
+          <h2 class="panel__title" id="rows-title">Your grades</h2>
+        </div>
+        <div class="rows__head" aria-hidden="true"><span>Category</span><span>Weight %</span><span>Score %</span><span></span></div>
+        <ol class="rows" id="rows"></ol>
+        <div class="rows__actions">
+          <button class="btn" id="add" type="button">+ Add category</button>
+          <button class="btn" id="reset" type="button">Start over</button>
+        </div>
+        <p class="hint" id="rows-note" role="status"></p>
+      </section>
+
+      <div class="col">
+        <section class="panel" aria-labelledby="grade-title" aria-live="polite">
+          <h2 class="panel__title" id="grade-title" style="margin-bottom: 12px">Current grade</h2>
+          <div class="grade">
+            <span class="grade__value" id="grade">—</span>
+            <span class="grade__letter" id="letter" hidden></span>
+          </div>
+          <p class="grade__note" id="grade-note">Add a weight and score to see your grade.</p>
+          <p class="warning" id="weight-warning" hidden></p>
+        </section>
+
+        <section class="panel planner" aria-labelledby="planner-title">
+          <h2 class="panel__title" id="planner-title">What do I need on the final?</h2>
+          <div class="planner__inputs">
+            <label>Final exam weight (%)
+              <input id="final-weight" type="number" min="1" max="100" step="1" inputmode="decimal" />
+            </label>
+            <label>Grade I want
+              <select id="target">
+                <option value="93">A (93%)</option>
+                <option value="90">A− (90%)</option>
+                <option value="87">B+ (87%)</option>
+                <option value="83">B (83%)</option>
+                <option value="80">B− (80%)</option>
+                <option value="77">C+ (77%)</option>
+                <option value="73">C (73%)</option>
+                <option value="70">C− (70%)</option>
+                <option value="60">D− (60%)</option>
+              </select>
+            </label>
+          </div>
+          <div class="needed" id="needed" aria-live="polite">
+            <strong id="needed-value">—</strong>
+            <p id="needed-text">Enter your grades and the final's weight.</p>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="scale-title">
+          <h2 class="panel__title" id="scale-title" style="margin-bottom: 12px">Letter scale</h2>
+          <ul class="scale" id="scale"></ul>
+          <p class="hint">A common US scale. Check your syllabus, since schools differ.</p>
+        </section>
+      </div>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Your grade is the weighted average of the categories you've filled in. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/grade-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const STORAGE_KEY = 'grade-calculator-v1';
+    const SCALE = [[93, 'A'], [90, 'A−'], [87, 'B+'], [83, 'B'], [80, 'B−'], [77, 'C+'], [73, 'C'], [70, 'C−'], [67, 'D+'], [63, 'D'], [60, 'D−'], [0, 'F']];
+    const SAMPLE = {
+      rows: [
+        { name: 'Homework', weight: '20', score: '92' },
+        { name: 'Quizzes', weight: '15', score: '85' },
+        { name: 'Projects', weight: '25', score: '88' },
+        { name: 'Midterm', weight: '15', score: '79' },
+      ],
+      finalWeight: '25',
+      target: '87',
+    };
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; } },
+      set(value) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+    const $ = (id) => document.getElementById(id);
+    const pct = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+    const letterFor = (score) => SCALE.find(([min]) => score >= min)[1];
+    const num = (value) => (value === '' || value == null ? NaN : Number(value));
+
+    const saved = store.get();
+    const state = saved && Array.isArray(saved.rows) ? saved : structuredClone(SAMPLE);
+    if (!saved) $('rows-note').textContent = 'These are example numbers. Replace them with your own, or start over.';
+
+    const rowsEl = $('rows');
+    const finalWeight = $('final-weight');
+    const target = $('target');
+    finalWeight.value = state.finalWeight;
+    target.value = state.target;
+
+    function renderRows(focusIndex) {
+      rowsEl.innerHTML = '';
+      state.rows.forEach((row, i) => {
+        const li = document.createElement('li');
+        li.className = 'row';
+        const name = Object.assign(document.createElement('input'), { type: 'text', value: row.name, placeholder: 'Category', maxLength: 40 });
+        name.setAttribute('aria-label', `Category ${i + 1} name`);
+        const weight = Object.assign(document.createElement('input'), { type: 'number', value: row.weight, min: '0', max: '100', step: 'any', placeholder: '0' });
+        weight.inputMode = 'decimal';
+        weight.setAttribute('aria-label', `${row.name || `Category ${i + 1}`} weight, percent of the class`);
+        const score = Object.assign(document.createElement('input'), { type: 'number', value: row.score, min: '0', max: '150', step: 'any', placeholder: '—' });
+        score.inputMode = 'decimal';
+        score.setAttribute('aria-label', `${row.name || `Category ${i + 1}`} score, percent`);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'row__remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove ${row.name || `category ${i + 1}`}`);
+
+        name.addEventListener('input', () => { row.name = name.value; update(); });
+        weight.addEventListener('input', () => { row.weight = weight.value; update(); });
+        score.addEventListener('input', () => { row.score = score.value; update(); });
+        remove.addEventListener('click', () => {
+          state.rows.splice(i, 1);
+          renderRows(Math.min(i, state.rows.length - 1));
+          update();
+        });
+        li.append(name, weight, score, remove);
+        rowsEl.append(li);
+      });
+      if (focusIndex != null && focusIndex >= 0) rowsEl.children[focusIndex]?.querySelector('input').focus();
+    }
+
+    function update() {
+      // Validate and collect the rows that have both a weight and a score
+      let weightSum = 0;
+      let points = 0;
+      let totalWeight = 0;
+      [...rowsEl.children].forEach((li, i) => {
+        const [, weightInput, scoreInput] = li.querySelectorAll('input');
+        const w = num(state.rows[i].weight);
+        const s = num(state.rows[i].score);
+        const badWeight = !Number.isNaN(w) && (w < 0 || w > 100);
+        const badScore = !Number.isNaN(s) && (s < 0 || s > 150);
+        weightInput.setAttribute('aria-invalid', String(badWeight));
+        scoreInput.setAttribute('aria-invalid', String(badScore));
+        if (!Number.isNaN(w) && !badWeight) totalWeight += w;
+        if (!Number.isNaN(w) && !Number.isNaN(s) && !badWeight && !badScore && w > 0) {
+          weightSum += w;
+          points += w * s;
+        }
+      });
+
+      const gradeEl = $('grade');
+      const letterEl = $('letter');
+      let current = NaN;
+      if (weightSum > 0) {
+        current = points / weightSum;
+        gradeEl.textContent = `${pct.format(current)}%`;
+        letterEl.textContent = letterFor(current);
+        letterEl.hidden = false;
+        $('grade-note').textContent = `Based on ${pct.format(weightSum)}% of the class so far.`;
+      } else {
+        gradeEl.textContent = '—';
+        letterEl.hidden = true;
+        $('grade-note').textContent = 'Add a weight and score to see your grade.';
+      }
+
+      const fw = num(finalWeight.value);
+      const warning = $('weight-warning');
+      const combined = totalWeight + (Number.isNaN(fw) ? 0 : fw);
+      warning.hidden = combined <= 100.0001;
+      warning.textContent = `Your weights add up to ${pct.format(combined)}% including the final. Check your syllabus: they usually total 100%.`;
+
+      // What's needed on the final to reach the target
+      const neededEl = $('needed');
+      const goal = Number(target.value);
+      if (Number.isNaN(current) || !(fw > 0 && fw <= 100)) {
+        neededEl.dataset.state = '';
+        $('needed-value').textContent = '—';
+        $('needed-text').textContent = !(fw > 0 && fw <= 100) ? "Enter the final exam's weight, between 1 and 100." : 'Enter your grades and the final\'s weight.';
+      } else {
+        const needed = (goal * (weightSum + fw) - points) / fw;
+        const label = target.options[target.selectedIndex].text.split(' (')[0];
+        if (needed <= 0) {
+          neededEl.dataset.state = 'safe';
+          $('needed-value').textContent = 'Already there';
+          $('needed-text').textContent = `You'll finish with at least ${label} (${goal}%) even with a 0% on the final.`;
+        } else if (needed > 100) {
+          neededEl.dataset.state = 'impossible';
+          $('needed-value').textContent = `${pct.format(needed)}%`;
+          $('needed-text').textContent = `That's above 100%, so ${label} isn't reachable without extra credit. Try a lower target.`;
+        } else {
+          neededEl.dataset.state = needed > 90 ? 'hard' : 'safe';
+          $('needed-value').textContent = `${pct.format(needed)}%`;
+          $('needed-text').textContent = `on the final to finish with ${label} (${goal}%).`;
+        }
+      }
+
+      // Highlight the current letter on the scale
+      const scaleEl = $('scale');
+      scaleEl.innerHTML = '';
+      SCALE.forEach(([min, letter], i) => {
+        const li = document.createElement('li');
+        const range = i === 0 ? `${min}+` : min === 0 ? `<${SCALE[i - 1][0]}` : `${min}+`;
+        li.innerHTML = `<b>${letter}</b> ${range}`;
+        if (!Number.isNaN(current) && letterFor(current) === letter) li.classList.add('is-current');
+        scaleEl.append(li);
+      });
+
+      state.finalWeight = finalWeight.value;
+      state.target = target.value;
+      store.set(state);
+    }
+
+    $('add').addEventListener('click', () => {
+      state.rows.push({ name: '', weight: '', score: '' });
+      renderRows(state.rows.length - 1);
+      update();
+    });
+    $('reset').addEventListener('click', () => {
+      state.rows = [{ name: '', weight: '', score: '' }];
+      finalWeight.value = '';
+      $('rows-note').textContent = 'Cleared. Add each category from your syllabus.';
+      renderRows(0);
+      update();
+    });
+    finalWeight.addEventListener('input', update);
+    target.addEventListener('change', update);
+
+    renderRows();
+    update();
+  })();
+  </script>
+</body>
+</html>
