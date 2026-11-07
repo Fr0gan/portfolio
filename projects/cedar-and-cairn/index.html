@@ -271,6 +271,8 @@
     .form .error { color: #ffc2a3; font-size: 0.9rem; font-weight: 400; }
     .form .error:empty { display: none; }
     .form .btn { justify-self: start; }
+    .form__total { color: #d6e2d8; font-size: 1.05rem; }
+    .form__total strong { color: var(--white); font-family: var(--font-display); font-size: 1.5rem; font-stretch: 85%; }
     .confirm { max-width: 820px; padding: 24px; border-radius: 6px; background: var(--white); color: var(--ink); }
     .confirm h3 { margin-bottom: 8px; font-size: 1.6rem; }
     .confirm p { color: var(--muted); }
@@ -458,6 +460,7 @@
           <label class="full">Anything we should know? (optional)
             <textarea id="b-notes" rows="3"></textarea>
           </label>
+          <p class="form__total full" id="b-total" aria-live="polite"></p>
           <button class="btn btn--blaze" type="submit">Request booking</button>
         </form>
         <div class="confirm" id="confirm" hidden tabindex="-1">
@@ -577,6 +580,7 @@
       const button = e.target.closest('[data-book]');
       if (!button) return;
       $('b-trip').value = button.dataset.book;
+      updateTotal();
       document.getElementById('book').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       setTimeout(() => $('b-date').focus({ preventScroll: true }), 500);
     });
@@ -651,6 +655,23 @@
     tripSelect.innerHTML = TRIPS.map((t) => `<option value="${t.id}">${t.name} · ${LEVEL_LABEL[t.level]} · ${money.format(t.price)}</option>`).join('');
     $('b-date').min = today;
 
+    // Live price estimate as the trip and group size change
+    function updateTotal() {
+      const trip = TRIPS.find((t) => t.id === tripSelect.value);
+      const people = Number($('b-size').value);
+      const total = $('b-total');
+      if (!(people >= 1 && people <= 8 && Number.isInteger(people))) {
+        total.textContent = 'Choose a group size from 1 to 8 to see the total.';
+        return;
+      }
+      total.innerHTML = 'Estimated total: <strong></strong><br />';
+      total.querySelector('strong').textContent = money.format(trip.price * people);
+      total.append(`${people} ${people === 1 ? 'hiker' : 'hikers'} × ${money.format(trip.price)} for ${trip.name}`);
+    }
+    tripSelect.addEventListener('change', updateTotal);
+    $('b-size').addEventListener('input', updateTotal);
+    updateTotal();
+
     const form = $('book-form');
     function setError(input, message) {
       $(input.getAttribute('aria-describedby')).textContent = message;
@@ -687,6 +708,7 @@
     $('book-again').addEventListener('click', () => {
       form.reset();
       $('b-size').value = 2;
+      updateTotal();
       $('confirm').hidden = true;
       form.hidden = false;
       $('b-date').focus();

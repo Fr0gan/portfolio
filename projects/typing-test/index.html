@@ -98,6 +98,13 @@
     .results__wpm small { display: block; color: var(--muted); font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.1em; }
     .results__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
     .results__badge { margin-bottom: 8px; color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.06em; }
+    .missed { margin-top: 16px; }
+    .missed__title { margin-bottom: 8px; color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .missed__list { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; }
+    .missed__list li { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .missed__typed { color: var(--danger); text-decoration: line-through; }
+    .missed__arrow { margin: 0 4px; color: var(--muted); }
+    .missed__none { color: var(--muted); font-size: 0.95rem; }
 
     @media (max-width: 600px) {
       .typing { padding: 20px 16px; }
@@ -151,6 +158,10 @@
           <div class="stat"><span class="stat__label">Correct words</span><span class="stat__value" id="r-words">0</span></div>
           <div class="stat"><span class="stat__label">Mistakes</span><span class="stat__value" id="r-miss">0</span></div>
           <div class="stat"><span class="stat__label">Characters</span><span class="stat__value" id="r-chars">0</span></div>
+        </div>
+        <div class="missed" id="r-missed-wrap" hidden>
+          <p class="missed__title">Words to practice</p>
+          <ul class="missed__list" id="r-missed"></ul>
         </div>
       </div>
     </section>
@@ -325,8 +336,47 @@
       document.getElementById('r-miss').textContent = keystrokes - correctKeystrokes;
       document.getElementById('r-chars').textContent = keystrokes;
       document.getElementById('r-badge').textContent = isBest && wpm > 0 ? 'NEW PERSONAL BEST!' : `${duration}-SECOND TEST`;
+      showMissedWords();
       results.hidden = false;
       document.getElementById('restart').focus({ preventScroll: true });
+    }
+
+    // List each word typed wrong (once), so the results show what to practice
+    function showMissedWords() {
+      const wrap = document.getElementById('r-missed-wrap');
+      const list = document.getElementById('r-missed');
+      list.innerHTML = '';
+      wrap.hidden = committed.length === 0;
+      const seen = new Set();
+      const missed = [];
+      committed.forEach((entry, i) => {
+        if (entry === words[i] || seen.has(words[i])) return;
+        seen.add(words[i]);
+        missed.push([entry, words[i]]);
+      });
+      if (!missed.length) {
+        const li = document.createElement('li');
+        li.className = 'missed__none';
+        li.style.border = '0';
+        li.style.padding = '0';
+        li.textContent = 'No mistyped words. Nice work.';
+        list.append(li);
+        return;
+      }
+      missed.slice(0, 12).forEach(([typedWord, expected]) => {
+        const li = document.createElement('li');
+        li.setAttribute('aria-label', `You typed ${typedWord} instead of ${expected}`);
+        const wrong = document.createElement('span');
+        wrong.className = 'missed__typed';
+        wrong.textContent = typedWord;
+        const arrow = document.createElement('span');
+        arrow.className = 'missed__arrow';
+        arrow.textContent = '→';
+        const right = document.createElement('span');
+        right.textContent = expected;
+        li.append(wrong, arrow, right);
+        list.append(li);
+      });
     }
 
     function commitWord() {
