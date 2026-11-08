@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>JSON Formatter | Logan Loftus</title>
+  <meta name="description" content="Format, minify and validate JSON in your browser, with exact error locations and optional key sorting." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .editor { display: grid; gap: 14px; }
+    .editor__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .editor__bar .toolbar__spacer { flex: 1; }
+    .editor textarea {
+      display: block;
+      width: 100%;
+      min-height: 24rem;
+      padding: 14px 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+      resize: vertical;
+    }
+    .editor textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .editor textarea[aria-invalid="true"] { border-color: var(--danger); }
+
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      font-size: 0.92rem;
+    }
+    .status__badge { padding: 2px 10px; border-radius: 999px; font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; }
+    .status[data-state="valid"] .status__badge { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+    .status[data-state="invalid"] { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+    .status[data-state="invalid"] .status__badge { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+    .status[data-state="empty"] .status__badge { background: var(--surface); color: var(--muted); }
+    .status__text { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+
+    .excerpt {
+      margin: 0;
+      padding: 12px 14px;
+      overflow-x: auto;
+      border-radius: 8px;
+      background: var(--surface-2);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .excerpt .caret { color: var(--danger); }
+    .copy-note { min-height: 1.4em; color: var(--muted); font-size: 0.9rem; }
+    .hint { margin-top: -8px; color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · JSON Formatter</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>JSON Formatter</h1>
+      <p>Paste JSON to check it, tidy it up or shrink it. If something's wrong, you'll see the exact line and column. Everything runs in your browser. Nothing you paste is sent anywhere or saved.</p>
+    </div>
+
+    <section class="panel editor" aria-label="JSON editor">
+      <div class="editor__bar">
+        <button class="btn btn--primary" id="format" type="button">Format</button>
+        <button class="btn" id="minify" type="button">Minify</button>
+        <label class="field">Indent
+          <select class="select" id="indent">
+            <option value="2">2 spaces</option>
+            <option value="4">4 spaces</option>
+            <option value="tab">Tabs</option>
+          </select>
+        </label>
+        <label class="field"><input type="checkbox" id="sort" /> Sort keys</label>
+        <span class="toolbar__spacer"></span>
+        <button class="btn" id="copy" type="button">Copy</button>
+        <button class="btn" id="clear" type="button">Clear</button>
+      </div>
+
+      <label class="visually-hidden" for="json" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">JSON</label>
+      <textarea id="json" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="status-text"></textarea>
+
+      <div class="status" id="status" data-state="empty" role="status">
+        <span class="status__badge" id="status-badge">Empty</span>
+        <span class="status__text" id="status-text">Paste or type JSON above.</span>
+      </div>
+      <pre class="excerpt" id="excerpt" hidden></pre>
+      <p class="copy-note" id="copy-note" role="status"></p>
+      <p class="hint">In the editor, Tab inserts two spaces. Press Esc, then Tab, to move to the next control.</p>
+    </section>
+
+    <p class="footnote">A Lab experiment. Uses the browser's own <code>JSON.parse</code> and <code>JSON.stringify</code>, with error positions turned into line and column numbers. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/json-formatter" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const SAMPLE = '{"name":"portfolio","version":"1.4.0","private":true,"projects":[{"id":"weather","type":"web app","live":true},{"id":"budget-tracker","type":"web app","live":true},{"id":"cedar-and-cairn","type":"website","live":true}],"theme":{"default":"system","options":["light","dark"]},"lab":{"count":5,"newest":"json-formatter"}}';
+
+    const $ = (id) => document.getElementById(id);
+    const input = $('json');
+    const statusEl = $('status');
+    const excerpt = $('excerpt');
+    const bytes = (text) => new TextEncoder().encode(text).length;
+    const size = (n) => (n < 1024 ? `${n} bytes` : `${(n / 1024).toFixed(1)} KB`);
+
+    function sortKeys(value) {
+      if (Array.isArray(value)) return value.map(sortKeys);
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort((a, b) => a.localeCompare(b)).map((key) => [key, sortKeys(value[key])]));
+      }
+      return value;
+    }
+
+    function describe(value) {
+      let keys = 0;
+      let depth = 0;
+      const walk = (node, level) => {
+        if (node && typeof node === 'object') {
+          depth = Math.max(depth, level + 1);
+          const children = Array.isArray(node) ? node : Object.values(node);
+          if (!Array.isArray(node)) keys += Object.keys(node).length;
+          children.forEach((child) => walk(child, level + 1));
+        }
+      };
+      walk(value, 0);
+      let kind;
+      if (Array.isArray(value)) kind = `array of ${value.length} ${value.length === 1 ? 'item' : 'items'}`;
+      else if (value && typeof value === 'object') kind = `object with ${Object.keys(value).length} top-level ${Object.keys(value).length === 1 ? 'key' : 'keys'}`;
+      else kind = value === null ? 'null' : typeof value;
+      const parts = [kind];
+      if (keys) parts.push(`${keys} ${keys === 1 ? 'key' : 'keys'} in total`);
+      if (depth > 1) parts.push(`${depth} levels deep`);
+      return parts.join(' · ');
+    }
+
+    // A small JSON checker that returns the index of the first error. Browsers don't
+    // always say where a parse failed (Chrome omits it for typos like "tru"), so this fills the gap.
+    function findErrorIndex(text) {
+      let i = 0;
+      const fail = () => { throw i; };
+      const space = () => { while (i < text.length && ' \t\n\r'.includes(text[i])) i += 1; };
+      const string = () => {
+        i += 1;
+        while (i < text.length) {
+          const c = text[i];
+          if (c === '"') { i += 1; return; }
+          if (c < ' ') fail();
+          if (c === '\\') {
+            i += 1;
+            if (!'"\\/bfnrtu'.includes(text[i] || '#')) fail();
+            if (text[i] === 'u') {
+              for (let k = 1; k <= 4; k += 1) if (!/[0-9a-fA-F]/.test(text[i + k] || '')) { i += k; fail(); }
+              i += 4;
+            }
+          }
+          i += 1;
+        }
+        fail();
+      };
+      const number = () => {
+        const m = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i));
+        if (!m || m[0] === '' || m[0] === '-') { i += m && m[0] === '-' ? 1 : 0; fail(); }
+        i += m[0].length;
+      };
+      const value = () => {
+        space();
+        const c = text[i];
+        if (c === '{') {
+          i += 1; space();
+          if (text[i] === '}') { i += 1; return; }
+          for (;;) {
+            space();
+            if (text[i] !== '"') fail();
+            string(); space();
+            if (text[i] !== ':') fail();
+            i += 1; value(); space();
+            if (text[i] === ',') { i += 1; continue; }
+            if (text[i] === '}') { i += 1; return; }
+            fail();
+          }
+        }
+        if (c === '[') {
+          i += 1; space();
+          if (text[i] === ']') { i += 1; return; }
+          for (;;) {
+            value(); space();
+            if (text[i] === ',') { i += 1; continue; }
+            if (text[i] === ']') { i += 1; return; }
+            fail();
+          }
+        }
+        if (c === '"') return string();
+        if (c === '-' || (c >= '0' && c <= '9')) return number();
+        for (const word of ['true', 'false', 'null']) {
+          if (text.startsWith(word, i)) { i += word.length; return; }
+          if (word[0] === c) {
+            let k = 0;
+            while (text[i + k] === word[k]) k += 1;
+            i += k;
+            fail();
+          }
+        }
+        fail();
+      };
+      try {
+        value(); space();
+        if (i < text.length) fail();
+        return null;
+      } catch (index) {
+        return typeof index === 'number' ? index : null;
+      }
+    }
+
+    // Browsers word parse errors differently; turn each into a line and column
+    function locate(error, text) {
+      const message = error.message;
+      let match = message.match(/line (\d+) column (\d+)/);
+      if (match) return { line: Number(match[1]), column: Number(match[2]) };
+      match = message.match(/position (\d+)/);
+      let position = match ? Number(match[1]) : null;
+      if (position === null) position = findErrorIndex(text);
+      if (position === null) return null;
+      const before = text.slice(0, position);
+      return { line: before.split('\n').length, column: position - before.lastIndexOf('\n') };
+    }
+
+    function cleanMessage(message) {
+      const text = message
+        .replace(/^JSON\.parse: /, '')
+        .replace(/ in JSON at position \d+.*$/, '')
+        .replace(/ at line \d+ column \d+ of the JSON data$/, '')
+        .replace(/^"[^"]*" is not valid JSON$/, 'Not valid JSON');
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function setStatus(state, badge, text) {
+      statusEl.dataset.state = state;
+      $('status-badge').textContent = badge;
+      $('status-text').textContent = text;
+      input.setAttribute('aria-invalid', String(state === 'invalid'));
+    }
+
+    // Returns the parsed value, or undefined when the text is empty or invalid
+    function check() {
+      const text = input.value;
+      excerpt.hidden = true;
+      if (!text.trim()) {
+        setStatus('empty', 'Empty', 'Paste or type JSON above.');
+        return undefined;
+      }
+      try {
+        const value = JSON.parse(text);
+        setStatus('valid', 'Valid', `${describe(value)} · ${size(bytes(text))}`);
+        return value;
+      } catch (error) {
+        const where = locate(error, text);
+        const message = cleanMessage(error.message);
+        if (where) {
+          setStatus('invalid', 'Invalid', `Line ${where.line}, column ${where.column}: ${message}`);
+          const lineText = text.split('\n')[where.line - 1] ?? '';
+          const start = Math.max(0, where.column - 40);
+          const shown = (start ? '…' : '') + lineText.slice(start, start + 80);
+          const caretAt = where.column - 1 - start + (start ? 1 : 0);
+          excerpt.textContent = '';
+          excerpt.append(`${shown}\n`);
+          const caret = document.createElement('span');
+          caret.className = 'caret';
+          caret.textContent = `${' '.repeat(Math.max(0, caretAt))}^`;
+          excerpt.append(caret);
+          excerpt.hidden = false;
+        } else {
+          setStatus('invalid', 'Invalid', message);
+        }
+        return undefined;
+      }
+    }
+
+    function transform(minify) {
+      const value = check();
+      if (value === undefined) {
+        $('copy-note').textContent = input.value.trim() ? 'Fix the error above first.' : '';
+        return;
+      }
+      const prepared = $('sort').checked ? sortKeys(value) : value;
+      const indent = $('indent').value === 'tab' ? '\t' : Number($('indent').value);
+      input.value = minify ? JSON.stringify(prepared) : JSON.stringify(prepared, null, indent);
+      input.style.tabSize = '4';
+      check();
+      $('copy-note').textContent = minify ? 'Minified.' : 'Formatted.';
+    }
+
+    let timer = 0;
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(check, 200);
+      $('copy-note').textContent = '';
+    });
+    $('format').addEventListener('click', () => transform(false));
+    $('minify').addEventListener('click', () => transform(true));
+    $('clear').addEventListener('click', () => {
+      input.value = '';
+      check();
+      $('copy-note').textContent = 'Cleared.';
+      input.focus();
+    });
+    $('copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(input.value);
+        $('copy-note').textContent = 'Copied to the clipboard.';
+      } catch {
+        input.select();
+        $('copy-note').textContent = 'Press Ctrl+C (or Cmd+C) to copy the selected text.';
+      }
+    });
+    // Let Tab insert an indent instead of leaving the editor; Esc then Tab moves on
+    let escaped = false;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { escaped = true; return; }
+      if (e.key === 'Tab' && !e.shiftKey && !escaped) {
+        e.preventDefault();
+        input.setRangeText('  ', input.selectionStart, input.selectionEnd, 'end');
+        input.dispatchEvent(new Event('input'));
+      }
+      if (e.key !== 'Escape') escaped = false;
+    });
+
+    input.value = JSON.stringify(JSON.parse(SAMPLE), null, 2);
+    check();
+  })();
+  </script>
+</body>
+</html>
