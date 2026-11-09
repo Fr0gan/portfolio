@@ -85,7 +85,8 @@
       font-size: 0.78rem;
       font-weight: 500;
     }
-    .badge--pass { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+    /* Text mixed toward the body color so it stays above 4.5:1 on its tinted background */
+    .badge--pass { background: color-mix(in srgb, var(--success) 12%, transparent); color: color-mix(in srgb, var(--success) 75%, var(--text)); }
     .badge--fail { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 
     .preview {

@@ -21,8 +21,9 @@
       --white: #ffffff;
       --muted: #56625a;
       --line: #d6dbd2;
-      --blaze: #e2621f;      /* trail-marker orange */
-      --blaze-dark: #b84a12;
+      --blaze: #e2621f;      /* trail-marker orange, for decoration */
+      --blaze-button: #bf4e18; /* deeper shade so white text passes WCAG AA */
+      --blaze-dark: #a8420f;
       --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
       --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
       color-scheme: light;
@@ -81,7 +82,7 @@
       transition: background-color 0.2s, color 0.2s, border-color 0.2s;
     }
     .btn:hover { background: var(--ink); color: var(--white); }
-    .btn--blaze { border-color: var(--blaze); background: var(--blaze); color: var(--white); }
+    .btn--blaze { border-color: var(--blaze-button); background: var(--blaze-button); color: var(--white); }
     .btn--blaze:hover { border-color: var(--blaze-dark); background: var(--blaze-dark); }
     .btn--light { border-color: rgba(255, 255, 255, 0.7); color: var(--white); }
     .btn--light:hover { background: var(--white); color: var(--forest); }
@@ -293,12 +294,12 @@
   </style>
 </head>
 <body>
-  <div class="concept" role="note">
+  <aside class="concept" aria-label="About this site">
     <div class="wrap">
       <span>Concept website for a fictional business, designed and built by Logan Loftus.</span>
       <a href="../../index.html#projects">← Back to portfolio</a>
     </div>
-  </div>
+  </aside>
 
   <header class="header">
     <div class="wrap">
@@ -388,7 +389,7 @@
               <tbody id="gear-rows"></tbody>
             </table>
           </div>
-          <aside class="estimate" aria-labelledby="estimate-title">
+          <div class="estimate" role="group" aria-labelledby="estimate-title">
             <h3 id="estimate-title">Your estimate</h3>
             <label>Number of days
               <input id="days" type="number" min="1" max="30" value="3" inputmode="numeric" />
@@ -396,7 +397,7 @@
             <ul class="estimate__lines" id="estimate-lines"></ul>
             <div class="estimate__total" aria-live="polite"><span>Estimated total</span><strong id="estimate-total">$0</strong></div>
             <small>Pay at pickup. A refundable $50 deposit applies to tents and packs.</small>
-          </aside>
+          </div>
         </div>
       </div>
     </section>
