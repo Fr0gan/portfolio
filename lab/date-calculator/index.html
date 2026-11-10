@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Date Calculator | Logan Loftus</title>
+  <meta name="description" content="Count the days, weekdays and weeks between two dates, or add and subtract days, weeks, months or business days." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; }
+    .panel { display: grid; gap: 16px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.15rem; }
+    .inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .inputs label, .single { display: grid; gap: 6px; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .inputs input, .inputs select, .single input {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .inputs input:focus, .inputs select:focus, .single input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+    .check { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 0.92rem; cursor: pointer; }
+
+    .answer { padding: 16px; border-radius: 10px; background: var(--surface-2); }
+    .answer__big { font-family: var(--font-head); font-size: clamp(1.8rem, 6vw, 2.4rem); font-weight: 700; line-height: 1.15; }
+    .answer__sub { margin-top: 6px; color: var(--muted); }
+    .breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .breakdown div { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+    .breakdown dt { color: var(--muted); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .breakdown dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+    .presets button {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .presets button:hover { border-color: var(--accent); color: var(--text); }
+
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 420px) { .inputs { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Date Calculator</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Date Calculator</h1>
+      <p>Count the days between two dates, including how many are weekdays, or find the date a number of days, weeks, months or business days from another. Handy for deadlines, countdowns and planning.</p>
+    </div>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="between-title">
+        <h2 class="panel__title" id="between-title">Time between two dates</h2>
+        <div class="inputs">
+          <label>Start date <input id="from" type="date" /></label>
+          <label>End date <input id="to" type="date" /></label>
+        </div>
+        <div class="row-actions">
+          <label class="check"><input type="checkbox" id="inclusive" /> Count the end date too</label>
+          <button class="btn" id="swap" type="button">⇄ Swap</button>
+        </div>
+        <div class="answer" aria-live="polite">
+          <div class="answer__big" id="between-days">—</div>
+          <p class="answer__sub" id="between-sub"></p>
+        </div>
+        <dl class="breakdown">
+          <div><dt>Weeks</dt><dd id="b-weeks">—</dd></div>
+          <div><dt>Months</dt><dd id="b-months">—</dd></div>
+          <div><dt>Weekdays (Mon–Fri)</dt><dd id="b-weekdays">—</dd></div>
+          <div><dt>Weekend days</dt><dd id="b-weekends">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="add-title">
+        <h2 class="panel__title" id="add-title">Add or subtract time</h2>
+        <label class="single">Starting date <input id="base" type="date" /></label>
+        <div class="inputs">
+          <label>Amount <input id="amount" type="number" min="0" max="100000" step="1" inputmode="numeric" /></label>
+          <label>Unit
+            <select id="unit">
+              <option value="days">Days</option>
+              <option value="business">Business days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </label>
+        </div>
+        <div class="segmented" role="group" aria-label="Direction">
+          <button type="button" data-direction="1" aria-pressed="true">Add</button>
+          <button type="button" data-direction="-1" aria-pressed="false">Subtract</button>
+        </div>
+        <div class="presets" role="group" aria-label="Quick amounts">
+          <button type="button" data-preset="7 days">1 week</button>
+          <button type="button" data-preset="30 days">30 days</button>
+          <button type="button" data-preset="10 business">10 business days</button>
+          <button type="button" data-preset="3 months">3 months</button>
+          <button type="button" data-preset="1 years">1 year</button>
+        </div>
+        <div class="answer" aria-live="polite">
+          <div class="answer__big" id="add-result">—</div>
+          <p class="answer__sub" id="add-sub"></p>
+        </div>
+      </section>
+    </div>
+
+    <p class="footnote">A Lab experiment. Dates are handled in UTC so daylight saving changes never shift a day. Business days skip Saturdays and Sundays but not public holidays. Adding months keeps the day of the month where possible, so January 31 plus one month is the last day of February. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/date-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const DAY = 86400000;
+    const $ = (id) => document.getElementById(id);
+    const number = new Intl.NumberFormat('en-US');
+    const longDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    const plural = (n, word) => `${number.format(n)} ${word}${n === 1 ? '' : 's'}`;
+
+    // All dates are UTC midnights, so subtraction always gives whole days
+    const parse = (value) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+      return match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : null;
+    };
+    const toInput = (date) => date.toISOString().slice(0, 10);
+    const today = () => {
+      const now = new Date();
+      return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    };
+    const addDays = (date, n) => new Date(date.getTime() + n * DAY);
+
+    function addMonths(date, n) {
+      const y = date.getUTCFullYear();
+      const m = date.getUTCMonth() + n;
+      const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+    }
+
+    function addBusinessDays(date, n) {
+      if (n === 0) return date;
+      const step = n < 0 ? -1 : 1;
+      let d = date;
+      // Counting from a weekend works as if from the nearest weekday behind you,
+      // so Saturday + 1 business day is Monday and Saturday - 1 is Friday
+      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = addDays(d, -step);
+      let left = Math.abs(n);
+      // Jump whole weeks first so large numbers stay fast
+      const weeks = Math.floor(left / 5);
+      d = addDays(d, weeks * 7 * step);
+      left -= weeks * 5;
+      while (left > 0) {
+        d = addDays(d, step);
+        const day = d.getUTCDay();
+        if (day !== 0 && day !== 6) left -= 1;
+      }
+      return d;
+    }
+
+    // Weekdays in [start, end), counted without walking every day
+    function weekdaysBetween(start, end) {
+      const days = Math.round((end - start) / DAY);
+      const fullWeeks = Math.floor(days / 7);
+      let count = fullWeeks * 5;
+      let d = addDays(start, fullWeeks * 7);
+      for (let i = 0; i < days % 7; i += 1) {
+        const day = d.getUTCDay();
+        if (day !== 0 && day !== 6) count += 1;
+        d = addDays(d, 1);
+      }
+      return count;
+    }
+
+    // Whole calendar months plus leftover days from start to end
+    function monthsAndDays(start, end) {
+      let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + (end.getUTCMonth() - start.getUTCMonth());
+      if (addMonths(start, months) > end) months -= 1;
+      const days = Math.round((end - addMonths(start, months)) / DAY);
+      const parts = [];
+      const years = Math.floor(months / 12);
+      if (years) parts.push(plural(years, 'year'));
+      if (months % 12) parts.push(plural(months % 12, 'month'));
+      if (days || !parts.length) parts.push(plural(days, 'day'));
+      return parts.join(', ');
+    }
+
+    function updateBetween() {
+      let start = parse($('from').value);
+      let end = parse($('to').value);
+      const ids = ['b-weeks', 'b-months', 'b-weekdays', 'b-weekends'];
+      if (!start || !end) {
+        $('between-days').textContent = '—';
+        $('between-sub').textContent = 'Pick both dates.';
+        ids.forEach((id) => { $(id).textContent = '—'; });
+        return;
+      }
+      const backwards = end < start;
+      if (backwards) [start, end] = [end, start];
+      const inclusive = $('inclusive').checked;
+      const endExclusive = inclusive ? addDays(end, 1) : end;
+      const days = Math.round((endExclusive - start) / DAY);
+      const weekdays = weekdaysBetween(start, endExclusive);
+
+      $('between-days').textContent = plural(days, 'day');
+      const from = longDate.format(start);
+      const to = longDate.format(end);
+      $('between-sub').textContent = backwards
+        ? `The end date is before the start date, so this counts back from ${to} to ${from}.`
+        : `From ${from} to ${to}${inclusive ? ', counting both dates' : ''}.`;
+      $('b-weeks').textContent = days % 7 ? `${plural(Math.floor(days / 7), 'week')}, ${plural(days % 7, 'day')}` : plural(days / 7, 'week');
+      $('b-months').textContent = monthsAndDays(start, endExclusive);
+      $('b-weekdays').textContent = number.format(weekdays);
+      $('b-weekends').textContent = number.format(days - weekdays);
+    }
+
+    let direction = 1;
+    function updateAdd() {
+      const base = parse($('base').value);
+      const amount = Math.round(Number($('amount').value));
+      if (!base || !Number.isFinite(amount) || amount < 0 || $('amount').value === '') {
+        $('add-result').textContent = '—';
+        $('add-sub').textContent = 'Pick a date and enter an amount.';
+        return;
+      }
+      const n = amount * direction;
+      const unit = $('unit').value;
+      let result;
+      if (unit === 'days') result = addDays(base, n);
+      else if (unit === 'weeks') result = addDays(base, n * 7);
+      else if (unit === 'months') result = addMonths(base, n);
+      else if (unit === 'years') result = addMonths(base, n * 12);
+      else result = addBusinessDays(base, n);
+
+      const unitName = { days: 'day', business: 'business day', weeks: 'week', months: 'month', years: 'year' }[unit];
+      $('add-result').textContent = longDate.format(result);
+      const offset = Math.round((result - today()) / DAY);
+      const relative = offset === 0 ? 'That’s today.' : offset > 0 ? `That’s ${plural(offset, 'day')} from today.` : `That was ${plural(-offset, 'day')} ago.`;
+      $('add-sub').textContent = `${plural(amount, unitName)} ${direction > 0 ? 'after' : 'before'} ${longDate.format(base)}. ${relative}`;
+    }
+
+    ['from', 'to', 'inclusive'].forEach((id) => $(id).addEventListener('input', updateBetween));
+    $('inclusive').addEventListener('change', updateBetween);
+    $('swap').addEventListener('click', () => {
+      [$('from').value, $('to').value] = [$('to').value, $('from').value];
+      updateBetween();
+    });
+    ['base', 'amount', 'unit'].forEach((id) => $(id).addEventListener('input', updateAdd));
+    $('unit').addEventListener('change', updateAdd);
+    document.querySelectorAll('[data-direction]').forEach((button) => {
+      button.addEventListener('click', () => {
+        direction = Number(button.dataset.direction);
+        document.querySelectorAll('[data-direction]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        updateAdd();
+      });
+    });
+    document.querySelectorAll('[data-preset]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const [amount, unit] = button.dataset.preset.split(' ');
+        $('amount').value = amount;
+        $('unit').value = unit;
+        updateAdd();
+      });
+    });
+
+    // Start with useful examples: the next 30 days, and 10 business days from today
+    const start = today();
+    $('from').value = toInput(start);
+    $('to').value = toInput(addDays(start, 30));
+    $('base').value = toInput(start);
+    $('amount').value = '10';
+    $('unit').value = 'business';
+    updateBetween();
+    updateAdd();
+  })();
+  </script>
+</body>
+</html>
