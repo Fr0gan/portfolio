@@ -96,7 +96,7 @@
     .tx-list { list-style: none; }
     .tx {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
       align-items: center;
       gap: 12px;
       padding: 12px 0;
@@ -107,6 +107,8 @@
     .tx__meta { color: var(--muted); font-size: 0.85rem; }
     .tx__amount { font-family: var(--font-mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
     .tx__amount.is-income { color: var(--success); }
+    .tx.is-editing { margin: 0 -8px; padding-inline: 8px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    .tx__edit,
     .tx__delete {
       display: grid;
       place-items: center;
@@ -120,6 +122,8 @@
       cursor: pointer;
     }
     .tx__delete:hover { background: var(--surface-2); color: var(--danger); }
+    .tx__edit:hover { background: var(--surface-2); color: var(--accent); }
+    .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .empty { padding: 24px 0 8px; color: var(--muted); text-align: center; }
     .undo {
       display: flex;
@@ -203,7 +207,10 @@
               <select id="f-category"></select>
             </label>
             <p class="form-error" id="form-error" role="alert" hidden></p>
-            <button class="btn btn--primary" type="submit">Add transaction</button>
+            <div class="form-actions">
+              <button class="btn btn--primary" id="submit" type="submit">Add transaction</button>
+              <button class="btn" id="cancel-edit" type="button" hidden>Cancel</button>
+            </div>
           </form>
         </section>
 
@@ -307,6 +314,7 @@
     let state = load() || sampleData();
     let viewMonth = todayISO().slice(0, 7);
     let entryType = 'expense';
+    let editingId = null;
     let filter = '';
 
     /* ---------- Elements ---------- */
@@ -440,13 +448,21 @@
         amount.className = `tx__amount${t.type === 'income' ? ' is-income' : ''}`;
         amount.textContent = `${t.type === 'income' ? '+' : '−'}${money.format(t.amount)}`;
 
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'tx__edit';
+        edit.textContent = '✎';
+        edit.setAttribute('aria-label', `Edit ${t.desc}, ${money.format(t.amount)}`);
+        edit.addEventListener('click', () => startEdit(t));
+
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'tx__delete';
         del.textContent = '×';
         del.setAttribute('aria-label', `Delete ${t.desc}, ${money.format(t.amount)}`);
         del.addEventListener('click', () => deleteTransaction(t));
-        li.append(info, amount, del);
+        if (t.id === editingId) li.classList.add('is-editing');
+        li.append(info, amount, edit, del);
         list.append(li);
       });
     }
@@ -457,6 +473,7 @@
     let undoTimer = 0;
 
     function deleteTransaction(t) {
+      if (t.id === editingId) endEdit();
       const rows = [...$('tx-list').querySelectorAll('.tx__delete')];
       const position = rows.findIndex((b) => b.getAttribute('aria-label') === `Delete ${t.desc}, ${money.format(t.amount)}`);
       const index = state.transactions.findIndex((x) => x.id === t.id);
@@ -494,13 +511,58 @@
       if (restored) restored.focus();
     });
 
+    /* ---------- Edit a transaction in the form ---------- */
+    function setType(type) {
+      entryType = type;
+      typeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === type)));
+      fillCategories();
+    }
+
+    function startEdit(t) {
+      editingId = t.id;
+      setType(t.type);
+      fDesc.value = t.desc;
+      fAmount.value = t.amount.toFixed(2);
+      fDate.value = t.date;
+      fCategory.value = t.category;
+      formError.hidden = true;
+      $('form-title').textContent = 'Edit transaction';
+      $('submit').textContent = 'Save changes';
+      $('cancel-edit').hidden = false;
+      render();
+      fDesc.focus();
+    }
+
+    function endEdit() {
+      editingId = null;
+      $('form-title').textContent = 'Add a transaction';
+      $('submit').textContent = 'Add transaction';
+      $('cancel-edit').hidden = true;
+      formError.hidden = true;
+      fDesc.value = '';
+      fAmount.value = '';
+    }
+
+    const focusRowButton = (id, kind) => {
+      const t = state.transactions.find((x) => x.id === id);
+      if (!t) return;
+      const label = `${kind} ${t.desc}, ${money.format(t.amount)}`;
+      [...$('tx-list').querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === label)?.focus();
+    };
+
+    $('cancel-edit').addEventListener('click', () => {
+      const id = editingId;
+      endEdit();
+      render();
+      focusRowButton(id, 'Edit');
+    });
+    form.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && editingId) $('cancel-edit').click();
+    });
+
     /* ---------- Events ---------- */
     typeButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        entryType = button.dataset.type;
-        typeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-        fillCategories();
-      });
+      button.addEventListener('click', () => setType(button.dataset.type));
     });
 
     form.addEventListener('submit', (e) => {
@@ -516,12 +578,21 @@
       formError.textContent = error;
       if (error) return;
 
-      state.transactions.push({ id: uid(), type: entryType, desc, amount, category: fCategory.value, date });
+      const existing = editingId && state.transactions.find((x) => x.id === editingId);
       viewMonth = date.slice(0, 7);
+      if (existing) {
+        Object.assign(existing, { type: entryType, desc, amount, category: fCategory.value, date });
+        const id = existing.id;
+        endEdit();
+        save();
+        render();
+        focusRowButton(id, 'Edit');
+        return;
+      }
+      state.transactions.push({ id: uid(), type: entryType, desc, amount, category: fCategory.value, date });
+      endEdit();
       save();
       render();
-      fDesc.value = '';
-      fAmount.value = '';
       fDesc.focus();
     });
 
@@ -530,6 +601,7 @@
     filterSelect.addEventListener('change', () => { filter = filterSelect.value; render(); });
 
     $('clear-sample').addEventListener('click', () => {
+      endEdit();
       clearTimeout(undoTimer);
       hideUndo();
       state = { transactions: [], budgets: { ...state.budgets }, sample: false };

@@ -48,7 +48,7 @@
       color: var(--text);
       font-size: 0.98rem;
     }
-    .row input[type="number"] { font-family: var(--font-mono); text-align: right; }
+    .row input:not(:first-child) { font-family: var(--font-mono); text-align: right; }
     .row input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
     .row input[aria-invalid="true"] { border-color: var(--danger); }
     .row__remove {
@@ -134,12 +134,13 @@
         <div class="panel__head">
           <h2 class="panel__title" id="rows-title">Your grades</h2>
         </div>
-        <div class="rows__head" aria-hidden="true"><span>Category</span><span>Weight %</span><span>Score %</span><span></span></div>
+        <div class="rows__head" aria-hidden="true"><span>Category</span><span>Weight %</span><span>Score</span><span></span></div>
         <ol class="rows" id="rows"></ol>
         <div class="rows__actions">
           <button class="btn" id="add" type="button">+ Add category</button>
           <button class="btn" id="reset" type="button">Start over</button>
         </div>
+        <p class="hint">Enter scores as a percentage (92) or as points (46/50).</p>
         <p class="hint" id="rows-note" role="status"></p>
       </section>
 
@@ -214,6 +215,14 @@
     const pct = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
     const letterFor = (score) => SCALE.find(([min]) => score >= min)[1];
     const num = (value) => (value === '' || value == null ? NaN : Number(value));
+    // Scores can be "92", "92%" or points like "46/50". Empty is NaN; anything unreadable is -1 so it gets flagged
+    function parseScore(value) {
+      const text = String(value ?? '').trim().replace(/\s*%$/, '');
+      if (text === '') return NaN;
+      const points = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(text);
+      if (points) return Number(points[2]) > 0 ? (Number(points[1]) / Number(points[2])) * 100 : -1;
+      return /^\d+(?:\.\d+)?$/.test(text) ? Number(text) : -1;
+    }
 
     const saved = store.get();
     const state = saved && Array.isArray(saved.rows) ? saved : structuredClone(SAMPLE);
@@ -235,9 +244,9 @@
         const weight = Object.assign(document.createElement('input'), { type: 'number', value: row.weight, min: '0', max: '100', step: 'any', placeholder: '0' });
         weight.inputMode = 'decimal';
         weight.setAttribute('aria-label', `${row.name || `Category ${i + 1}`} weight, percent of the class`);
-        const score = Object.assign(document.createElement('input'), { type: 'number', value: row.score, min: '0', max: '150', step: 'any', placeholder: '—' });
+        const score = Object.assign(document.createElement('input'), { type: 'text', value: row.score, placeholder: '—', autocomplete: 'off' });
         score.inputMode = 'decimal';
-        score.setAttribute('aria-label', `${row.name || `Category ${i + 1}`} score, percent`);
+        score.setAttribute('aria-label', `${row.name || `Category ${i + 1}`} score, as a percentage or points like 46/50`);
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'row__remove';
@@ -266,9 +275,9 @@
       [...rowsEl.children].forEach((li, i) => {
         const [, weightInput, scoreInput] = li.querySelectorAll('input');
         const w = num(state.rows[i].weight);
-        const s = num(state.rows[i].score);
+        const s = parseScore(state.rows[i].score);
         const badWeight = !Number.isNaN(w) && (w < 0 || w > 100);
-        const badScore = !Number.isNaN(s) && (s < 0 || s > 150);
+        const badScore = !Number.isNaN(s) && !(s >= 0 && s <= 150);
         weightInput.setAttribute('aria-invalid', String(badWeight));
         scoreInput.setAttribute('aria-invalid', String(badScore));
         if (!Number.isNaN(w) && !badWeight) totalWeight += w;
