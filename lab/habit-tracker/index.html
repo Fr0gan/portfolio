@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Habit Tracker | Logan Loftus</title>
+  <meta name="description" content="Check off daily habits, keep your streaks going and see the last 12 weeks at a glance." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .notice {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 20px;
+      margin-bottom: 16px;
+      padding: 14px 18px;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    }
+    .add { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .add input {
+      flex: 1 1 220px;
+      min-width: 0;
+      padding: 9px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .add input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .add__error { flex-basis: 100%; color: var(--danger); font-size: 0.9rem; }
+
+    .habits { display: grid; gap: 16px; list-style: none; }
+    .habit { display: grid; gap: 14px; }
+    .habit__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+    .habit__name { min-width: 0; font-family: var(--font-head); font-size: 1.2rem; overflow-wrap: anywhere; }
+    .habit__stats { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    .habit__stats strong { color: var(--text); }
+    .habit__stats .is-hot strong { color: var(--success); }
+
+    .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .day {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      padding: 8px 2px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+    .day b { color: var(--text); font-family: var(--font-head); font-size: 1.05rem; }
+    .day__mark { width: 18px; height: 18px; border: 2px solid var(--border-strong); border-radius: 50%; }
+    .day[aria-pressed="true"] { border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--surface)); }
+    .day[aria-pressed="true"] .day__mark { border-color: var(--success); background: var(--success); box-shadow: inset 0 0 0 3px var(--surface); }
+    .day.is-today { border-width: 2px; }
+    .day:hover { border-color: var(--accent); }
+
+    .grid-wrap { overflow-x: auto; }
+    .heatmap { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); grid-auto-columns: 12px; gap: 3px; width: max-content; }
+    .heatmap span { border-radius: 3px; background: var(--surface-2); }
+    .heatmap span.is-done { background: var(--success); }
+    .heatmap span.is-future { background: transparent; }
+    .heatmap__caption { margin-top: 6px; color: var(--muted); font-size: 0.82rem; }
+
+    .habit__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .link-button { border: 0; background: none; color: var(--muted); font-size: 0.88rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    .link-button:hover { color: var(--danger); }
+    .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .empty { padding: 28px; border: 1px dashed var(--border-strong); border-radius: var(--radius); color: var(--muted); text-align: center; }
+
+    @media (max-width: 420px) {
+      .week { gap: 4px; }
+      .day { padding: 6px 0; font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Habit Tracker</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Habit Tracker</h1>
+      <p>Check off your habits each day and keep your streaks going. Tap any of the last seven days to fill in one you forgot. Your habits are saved in this browser only.</p>
+    </div>
+
+    <div class="notice" id="sample-notice" hidden>
+      <p><strong>These are example habits.</strong> Clear them when you're ready to track your own.</p>
+      <button class="btn" id="clear-sample" type="button">Clear examples</button>
+    </div>
+
+    <form class="add" id="add-form" novalidate>
+      <label class="visually-hidden" for="new-habit" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">New habit</label>
+      <input id="new-habit" type="text" maxlength="50" placeholder="Add a habit, e.g. Practice guitar" autocomplete="off" />
+      <button class="btn btn--primary" type="submit">Add habit</button>
+      <p class="add__error" id="add-error" role="alert" hidden></p>
+    </form>
+
+    <ul class="habits" id="habits" aria-label="Habits"></ul>
+    <p class="empty" id="empty" hidden>No habits yet. Add one above to start a streak.</p>
+
+    <p class="footnote">A Lab experiment, inspired by the 100-day coding streak I kept. A streak counts back from today, or from yesterday if today isn't checked yet, so it doesn't reset until a full day is missed. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/habit-tracker" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const STORAGE_KEY = 'habit-tracker-v1';
+    const WEEKS = 12;
+    const $ = (id) => document.getElementById(id);
+    const pad = (n) => String(n).padStart(2, '0');
+    // Habits are about local days, so use the visitor's own calendar
+    const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const dayStart = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const shift = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+    const fullDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const uid = () => Math.random().toString(36).slice(2, 10);
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; } },
+      set(value) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+
+    function sample() {
+      const today = dayStart(new Date());
+      const days = (pattern) => {
+        const out = [];
+        for (let i = 0; i < WEEKS * 7; i += 1) if (pattern(i)) out.push(keyOf(shift(today, -i)));
+        return out;
+      };
+      return {
+        sample: true,
+        habits: [
+          { id: uid(), name: 'Code for 30 minutes', days: days((i) => i >= 1 && i <= 40 || (i > 44 && i % 3 !== 0)) },
+          { id: uid(), name: 'Read 20 pages', days: days((i) => i % 2 === 0 || i % 7 === 3) },
+          { id: uid(), name: 'Walk outside', days: days((i) => i < 5 || (i > 9 && i % 4 !== 1)) },
+        ],
+      };
+    }
+
+    let state = store.get();
+    if (!state || !Array.isArray(state.habits)) state = sample();
+    const save = () => store.set(state);
+
+    function streaks(days) {
+      const done = new Set(days);
+      const today = dayStart(new Date());
+      // Current streak: count back from today, or from yesterday if today isn't done yet
+      let cursor = done.has(keyOf(today)) ? today : shift(today, -1);
+      let current = 0;
+      while (done.has(keyOf(cursor))) { current += 1; cursor = shift(cursor, -1); }
+      // Best streak over all recorded days
+      const sorted = [...done].sort();
+      let best = 0;
+      let run = 0;
+      let prev = null;
+      sorted.forEach((key) => {
+        const [y, m, d] = key.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+        run = prev && keyOf(shift(prev, 1)) === key ? run + 1 : 1;
+        best = Math.max(best, run);
+        prev = date;
+      });
+      return { current, best, total: done.size };
+    }
+
+    function render() {
+      $('sample-notice').hidden = !state.sample;
+      $('empty').hidden = state.habits.length > 0;
+      const list = $('habits');
+      list.innerHTML = '';
+      const today = dayStart(new Date());
+
+      state.habits.forEach((habit) => {
+        const done = new Set(habit.days);
+        const { current, best, total } = streaks(habit.days);
+        const li = document.createElement('li');
+        li.className = 'panel habit';
+
+        const head = document.createElement('div');
+        head.className = 'habit__head';
+        const name = document.createElement('h2');
+        name.className = 'habit__name';
+        name.textContent = habit.name;
+        const stats = document.createElement('p');
+        stats.className = 'habit__stats';
+        stats.innerHTML = `<span class="${current >= 7 ? 'is-hot' : ''}">Streak <strong>${current}</strong> ${current === 1 ? 'day' : 'days'}</span><span>Best <strong>${best}</strong></span><span>Total <strong>${total}</strong></span>`;
+        head.append(name, stats);
+
+        // Last seven days as toggle buttons
+        const week = document.createElement('div');
+        week.className = 'week';
+        week.setAttribute('role', 'group');
+        week.setAttribute('aria-label', `${habit.name}, last 7 days`);
+        for (let i = 6; i >= 0; i -= 1) {
+          const date = shift(today, -i);
+          const key = keyOf(date);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `day${i === 0 ? ' is-today' : ''}`;
+          button.setAttribute('aria-pressed', String(done.has(key)));
+          button.setAttribute('aria-label', `${habit.name}: ${i === 0 ? 'today, ' : ''}${fullDate.format(date)}`);
+          button.innerHTML = `<span>${i === 0 ? 'Today' : weekday.format(date)}</span><b>${date.getDate()}</b><span class="day__mark"></span>`;
+          button.addEventListener('click', () => {
+            const index = habit.days.indexOf(key);
+            if (index >= 0) habit.days.splice(index, 1);
+            else habit.days.push(key);
+            save();
+            render();
+            document.querySelector(`[data-habit="${habit.id}"] .day:nth-child(${7 - i})`)?.focus();
+          });
+          week.append(button);
+        }
+
+        // Read-only 12-week overview, newest week on the right, Monday on top
+        const wrap = document.createElement('div');
+        wrap.className = 'grid-wrap';
+        const heatmap = document.createElement('div');
+        heatmap.className = 'heatmap';
+        const mondayOffset = (today.getDay() + 6) % 7;
+        const start = shift(today, -mondayOffset - (WEEKS - 1) * 7);
+        let doneInRange = 0;
+        for (let i = 0; i < WEEKS * 7; i += 1) {
+          const date = shift(start, i);
+          const cell = document.createElement('span');
+          if (date > today) cell.className = 'is-future';
+          else if (done.has(keyOf(date))) { cell.className = 'is-done'; doneInRange += 1; }
+          heatmap.append(cell);
+        }
+        heatmap.setAttribute('role', 'img');
+        heatmap.setAttribute('aria-label', `${habit.name}: done on ${doneInRange} ${doneInRange === 1 ? 'day' : 'days'} in the last ${WEEKS} weeks`);
+        const caption = document.createElement('p');
+        caption.className = 'heatmap__caption';
+        caption.textContent = `Last ${WEEKS} weeks · ${doneInRange} ${doneInRange === 1 ? 'day' : 'days'}`;
+        wrap.append(heatmap, caption);
+
+        // Delete with an inline confirmation instead of a pop-up
+        const foot = document.createElement('div');
+        foot.className = 'habit__foot';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'link-button';
+        remove.textContent = 'Delete habit';
+        remove.setAttribute('aria-label', `Delete ${habit.name}`);
+        remove.addEventListener('click', () => {
+          foot.innerHTML = '';
+          const confirm = document.createElement('div');
+          confirm.className = 'confirm';
+          confirm.innerHTML = '<span>Delete this habit and its history?</span>';
+          const yes = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Delete' });
+          const no = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Keep' });
+          yes.addEventListener('click', () => {
+            state.habits = state.habits.filter((h) => h.id !== habit.id);
+            save();
+            render();
+            $('new-habit').focus();
+          });
+          no.addEventListener('click', () => { render(); document.querySelector(`[data-habit="${habit.id}"] .link-button`)?.focus(); });
+          confirm.append(yes, no);
+          foot.append(confirm);
+          no.focus();
+        });
+        foot.append(remove);
+
+        li.dataset.habit = habit.id;
+        li.append(head, week, wrap, foot);
+        list.append(li);
+      });
+    }
+
+    $('add-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = $('new-habit');
+      const name = input.value.trim();
+      const error = !name
+        ? 'Type a habit name first.'
+        : state.habits.some((h) => h.name.toLowerCase() === name.toLowerCase()) ? 'You already track that habit.' : '';
+      $('add-error').hidden = !error;
+      $('add-error').textContent = error;
+      if (error) return;
+      state.habits.push({ id: uid(), name, days: [] });
+      input.value = '';
+      save();
+      render();
+      input.focus();
+    });
+
+    $('clear-sample').addEventListener('click', () => {
+      state = { sample: false, habits: [] };
+      save();
+      render();
+      $('new-habit').focus();
+    });
+
+    // Re-render after midnight so "today" moves on if the page stays open
+    let lastDay = keyOf(new Date());
+    setInterval(() => {
+      if (keyOf(new Date()) !== lastDay) { lastDay = keyOf(new Date()); render(); }
+    }, 60000);
+
+    render();
+  })();
+  </script>
+</body>
+</html>
