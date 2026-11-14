@@ -124,6 +124,7 @@
             <div><dt>Average word length</dt><dd id="d-wordlen">0</dd></div>
             <div><dt>Average sentence length</dt><dd id="d-sentlen">0 words</dd></div>
             <div><dt>Longest sentence</dt><dd id="d-longest">0 words</dd></div>
+            <div><dt>Reading level</dt><dd id="d-level">Needs 30+ words</dd></div>
           </dl>
           <p class="tip" id="tip" hidden style="margin-top: 12px"></p>
         </section>
@@ -143,7 +144,7 @@
       </div>
     </div>
 
-    <p class="footnote">A Lab experiment. Words and sentences are split with <code>Intl.Segmenter</code>, which handles contractions and punctuation better than splitting on spaces. Times assume 238 words per minute for reading and 150 for speaking. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/word-counter" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment. Words and sentences are split with <code>Intl.Segmenter</code>, which handles contractions and punctuation better than splitting on spaces. Times assume 238 words per minute for reading and 150 for speaking. Reading level uses the Flesch–Kincaid formulas with an estimated syllable count, so treat it as a guide. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/word-counter" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -186,6 +187,25 @@ Start your hike early. Afternoon storms are common in the mountains, and turning
       return rest && minutes < 10 ? `${minutes} min ${rest} sec` : `${Math.round(seconds / 60)} min`;
     }
 
+    // Rough English syllable count: vowel groups, minus common silent endings
+    function syllables(word) {
+      let w = word.toLowerCase().replace(/[^a-z]/g, '');
+      if (!w) return 0;
+      if (w.length <= 3) return 1;
+      w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, '');
+      const groups = w.match(/[aeiouy]{1,2}/g);
+      return groups ? groups.length : 1;
+    }
+    function easeLabel(ease) {
+      if (ease >= 90) return 'Very easy';
+      if (ease >= 80) return 'Easy';
+      if (ease >= 70) return 'Fairly easy';
+      if (ease >= 60) return 'Plain English';
+      if (ease >= 50) return 'Fairly hard';
+      if (ease >= 30) return 'Hard';
+      return 'Very hard';
+    }
+
     const $ = (id) => document.getElementById(id);
     const input = $('text');
     const goalInput = $('goal-input');
@@ -211,6 +231,20 @@ Start your hike early. Afternoon storms are common in the mountains, and turning
       $('d-wordlen').textContent = count ? `${oneDecimal.format(list.reduce((sum, w) => sum + [...w].length, 0) / count)} letters` : '0';
       $('d-sentlen').textContent = `${sentenceList.length ? oneDecimal.format(count / sentenceList.length) : 0} words`;
       $('d-longest').textContent = `${longest} words`;
+
+      // Flesch reading ease and Flesch–Kincaid grade, once there's enough text to mean something
+      const level = $('d-level');
+      if (count >= 30 && sentenceList.length) {
+        const wordsPerSentence = count / sentenceList.length;
+        const syllablesPerWord = list.reduce((sum, w) => sum + syllables(w), 0) / count;
+        const ease = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
+        const grade = Math.max(1, Math.round(0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59));
+        level.textContent = `Grade ${grade >= 16 ? '16+' : grade} · ${easeLabel(ease)}`;
+        level.title = `Flesch reading ease: ${Math.round(ease)} out of 100`;
+      } else {
+        level.textContent = 'Needs 30+ words';
+        level.removeAttribute('title');
+      }
 
       const tip = $('tip');
       tip.hidden = longest <= LONG_SENTENCE;

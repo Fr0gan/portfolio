@@ -16,6 +16,20 @@
     .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
     .search-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: -4px 0 16px; }
+    .recent__label { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .recent__list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 4px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .chip[aria-current="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
     .search { position: relative; flex: 1 1 260px; }
     .search input {
       width: 100%;
@@ -147,6 +161,11 @@
       </div>
     </div>
 
+    <div class="recent" id="recent" hidden>
+      <span class="recent__label" id="recent-label">Recent</span>
+      <div class="recent__list" id="recent-list" role="group" aria-labelledby="recent-label"></div>
+    </div>
+
     <div class="status" id="status" role="status"></div>
 
     <div class="forecast" id="forecast" aria-busy="true">
@@ -275,6 +294,37 @@
     let loadedAt = 0;
     const REFRESH_AFTER = 30 * 60 * 1000;
 
+    /* ---------- Recent places ---------- */
+    const RECENT_KEY = 'weather-recent';
+    const samePlace = (a, b) => Math.abs(a.lat - b.lat) < 0.01 && Math.abs(a.lon - b.lon) < 0.01;
+    let recent = (store.get(RECENT_KEY) || []).filter((p) => p && typeof p.lat === 'number' && typeof p.lon === 'number');
+
+    function rememberPlace(p) {
+      recent = [p, ...recent.filter((r) => !samePlace(r, p))].slice(0, 5);
+      store.set(RECENT_KEY, recent);
+      renderRecent();
+    }
+
+    function renderRecent() {
+      const list = $('recent-list');
+      list.innerHTML = '';
+      $('recent').hidden = recent.length < 2;
+      recent.forEach((p) => {
+        // Two places with the same name (Portland, Oregon and Portland, Maine) get their region added
+        const clash = recent.some((r) => r !== p && r.name === p.name);
+        const full = p.region ? `${p.name}, ${p.region}` : p.name;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chip';
+        button.textContent = clash && p.region ? `${p.name}, ${p.region.split(',')[0]}` : p.name;
+        button.title = full;
+        button.setAttribute('aria-label', `Show weather for ${full}`);
+        if (samePlace(p, place)) button.setAttribute('aria-current', 'true');
+        button.addEventListener('click', () => { if (!samePlace(p, place)) loadForecast(p); });
+        list.append(button);
+      });
+    }
+
     function setStatus(message, { error = false, retry = false } = {}) {
       status.innerHTML = '';
       status.classList.toggle('is-error', error);
@@ -298,6 +348,7 @@
     async function loadForecast(target) {
       place = target;
       store.set('weather-place', place);
+      rememberPlace(place);
       $('place').textContent = place.name;
       $('region').textContent = place.region || ' ';
       forecastEl.classList.add('is-loading');
