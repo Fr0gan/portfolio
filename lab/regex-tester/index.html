@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Regex Tester | Logan Loftus</title>
+  <meta name="description" content="Test JavaScript regular expressions with live match highlighting, capture groups and a find-and-replace preview." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .stack { display: grid; gap: 16px; }
+    .panel { display: grid; gap: 12px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.1rem; }
+    .label { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+
+    .pattern {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      font-family: var(--font-mono);
+    }
+    .pattern:focus-within { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .pattern[data-invalid="true"] { border-color: var(--danger); }
+    .pattern__slash { color: var(--muted); font-size: 1.1rem; }
+    .pattern input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 2px;
+      border: 0;
+      background: none;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      outline: none;
+    }
+    .pattern__flags { color: var(--accent); font-size: 1rem; min-width: 1ch; }
+    .flags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .flag code { color: var(--text); font-family: var(--font-mono); }
+    .flag[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); }
+    .error { color: var(--danger); font-size: 0.92rem; }
+
+    textarea, .replace input {
+      width: 100%;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+    textarea { min-height: 9rem; resize: vertical; }
+    textarea:focus, .replace input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+
+    .summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+    .count { padding: 2px 10px; border-radius: 999px; background: var(--surface-2); font-family: var(--font-mono); font-size: 0.82rem; }
+    .count.is-hit { background: color-mix(in srgb, var(--success) 12%, transparent); color: color-mix(in srgb, var(--success) 75%, var(--text)); }
+    .preview {
+      max-height: 18rem;
+      padding: 12px 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: var(--surface-2);
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .preview mark { padding: 1px 0; border-radius: 3px; background: color-mix(in srgb, var(--accent) 28%, transparent); color: inherit; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent); }
+    .preview mark.alt { background: color-mix(in srgb, var(--warning) 30%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 55%, transparent); }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+    td code { font-family: var(--font-mono); overflow-wrap: anywhere; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .groups { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); }
+    .groups b { color: var(--text); font-weight: 500; }
+
+    .replace { display: grid; gap: 8px; }
+    .replace__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .note { min-height: 1.4em; color: var(--muted); font-size: 0.88rem; }
+
+    details.cheats summary { font-family: var(--font-head); font-size: 1.05rem; font-weight: 600; cursor: pointer; }
+    .cheats dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 20px; margin-top: 12px; }
+    .cheats div { display: flex; gap: 10px; font-size: 0.9rem; }
+    .cheats dt { min-width: 5.5em; font-family: var(--font-mono); color: var(--accent); }
+    .cheats dd { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Regex Tester</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Regex Tester</h1>
+      <p>Write a JavaScript regular expression and see what it matches as you type, including capture groups, then preview a find-and-replace. Patterns run in a background worker with a time limit, so a runaway pattern can't freeze the page.</p>
+    </div>
+
+    <div class="stack">
+      <section class="panel" aria-labelledby="pattern-title">
+        <h2 class="panel__title" id="pattern-title">Pattern</h2>
+        <div class="pattern" id="pattern-box">
+          <span class="pattern__slash" aria-hidden="true">/</span>
+          <input id="pattern" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Regular expression" aria-describedby="error" />
+          <span class="pattern__slash" aria-hidden="true">/</span><span class="pattern__flags" id="flags-text" aria-hidden="true"></span>
+        </div>
+        <div class="flags" role="group" aria-label="Flags">
+          <button class="flag" type="button" data-flag="g" aria-pressed="true"><code>g</code> all matches</button>
+          <button class="flag" type="button" data-flag="i" aria-pressed="false"><code>i</code> ignore case</button>
+          <button class="flag" type="button" data-flag="m" aria-pressed="false"><code>m</code> multiline</button>
+          <button class="flag" type="button" data-flag="s" aria-pressed="false"><code>s</code> dot matches newline</button>
+          <button class="flag" type="button" data-flag="u" aria-pressed="false"><code>u</code> unicode</button>
+        </div>
+        <p class="error" id="error" role="alert" hidden></p>
+
+        <label class="label" for="text">Test text</label>
+        <textarea id="text" spellcheck="false"></textarea>
+      </section>
+
+      <section class="panel" aria-labelledby="results-title">
+        <div class="summary">
+          <h2 class="panel__title" id="results-title">Matches</h2>
+          <span class="count" id="count" role="status">0 matches</span>
+        </div>
+        <div class="preview" id="preview" tabindex="0" role="region" aria-label="Test text with matches highlighted"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">#</th><th scope="col">Match</th><th scope="col">Position</th><th scope="col">Groups</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel replace" aria-labelledby="replace-title">
+        <div class="replace__head">
+          <h2 class="panel__title" id="replace-title">Replace</h2>
+          <button class="btn" id="copy" type="button">Copy result</button>
+        </div>
+        <input id="replacement" type="text" spellcheck="false" autocomplete="off" aria-label="Replacement text" placeholder="Use $1, $2 or $&lt;name&gt; for groups, $&amp; for the whole match" />
+        <div class="preview" id="replaced" tabindex="0" role="region" aria-label="Text after replacing"></div>
+        <p class="note" id="note" role="status"></p>
+      </section>
+
+      <details class="panel cheats">
+        <summary>Quick reference</summary>
+        <dl>
+          <div><dt>.</dt><dd>Any character except newline</dd></div>
+          <div><dt>\d \w \s</dt><dd>Digit, word character, whitespace</dd></div>
+          <div><dt>\D \W \S</dt><dd>Anything except the above</dd></div>
+          <div><dt>[abc]</dt><dd>One of a, b or c</dd></div>
+          <div><dt>[^abc]</dt><dd>Anything but a, b or c</dd></div>
+          <div><dt>^ $</dt><dd>Start and end of text (or line with m)</dd></div>
+          <div><dt>\b</dt><dd>Word boundary</dd></div>
+          <div><dt>* + ?</dt><dd>0 or more, 1 or more, 0 or 1</dd></div>
+          <div><dt>{2,4}</dt><dd>Between 2 and 4 times</dd></div>
+          <div><dt>*? +?</dt><dd>Lazy: as few as possible</dd></div>
+          <div><dt>(abc)</dt><dd>Capture group</dd></div>
+          <div><dt>(?&lt;name&gt;…)</dt><dd>Named capture group</dd></div>
+          <div><dt>(?:abc)</dt><dd>Group without capturing</dd></div>
+          <div><dt>a|b</dt><dd>a or b</dd></div>
+          <div><dt>(?=…) (?!…)</dt><dd>Followed by, not followed by</dd></div>
+          <div><dt>\. \( \\</dt><dd>Escape a special character</dd></div>
+        </dl>
+      </details>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Matching runs in a Web Worker that's stopped if it takes longer than a second, which protects the page from patterns with catastrophic backtracking. Up to 1,000 matches are listed. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/regex-tester" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const LIMIT = 1000;
+    const TIMEOUT = 1000;
+    const SAMPLE = {
+      pattern: '(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})',
+      text: 'Release notes\n2026-10-29: Replaced the browser games with web projects.\n2026-11-04: Added the theme switch and project filters.\nNext review: 2026-12-01 (tentative)',
+      replacement: '$<month>/$<day>/$<year>',
+    };
+
+    // The worker does all the matching, so a slow pattern can be stopped without freezing the page
+    const WORKER_SOURCE = `
+      self.onmessage = (event) => {
+        const { id, pattern, flags, text, replacement, limit } = event.data;
+        try {
+          const regex = new RegExp(pattern, flags);
+          const matches = [];
+          const take = (m) => matches.push({ index: m.index, text: m[0], groups: m.slice(1), named: m.groups ? { ...m.groups } : null });
+          if (regex.global || regex.sticky) {
+            let m;
+            while (matches.length < limit && (m = regex.exec(text)) !== null) {
+              take(m);
+              if (m[0] === '') regex.lastIndex += 1;
+            }
+          } else {
+            const m = regex.exec(text);
+            if (m) take(m);
+          }
+          regex.lastIndex = 0;
+          postMessage({ id, ok: true, matches, capped: matches.length >= limit, replaced: text.replace(regex, replacement) });
+        } catch (error) {
+          postMessage({ id, ok: false, error: error.message });
+        }
+      };`;
+    const workerUrl = URL.createObjectURL(new Blob([WORKER_SOURCE], { type: 'text/javascript' }));
+
+    const $ = (id) => document.getElementById(id);
+    const patternInput = $('pattern');
+    const textInput = $('text');
+    const replacementInput = $('replacement');
+    const flagButtons = [...document.querySelectorAll('[data-flag]')];
+    const number = new Intl.NumberFormat('en-US');
+
+    let worker = new Worker(workerUrl);
+    let requestId = 0;
+    let timer = 0;
+    let debounce = 0;
+    let lastReplaced = '';
+
+    const flags = () => flagButtons.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.flag).join('');
+
+    function showError(message) {
+      $('error').hidden = !message;
+      $('error').textContent = message;
+      $('pattern-box').dataset.invalid = String(Boolean(message));
+      patternInput.setAttribute('aria-invalid', String(Boolean(message)));
+    }
+
+    function renderPreview(target, text, matches) {
+      target.textContent = '';
+      let cursor = 0;
+      matches.forEach((m, i) => {
+        if (m.text === '' || m.index < cursor) return;
+        target.append(text.slice(cursor, m.index));
+        const mark = document.createElement('mark');
+        if (i % 2) mark.className = 'alt';
+        mark.textContent = m.text;
+        target.append(mark);
+        cursor = m.index + m.text.length;
+      });
+      target.append(text.slice(cursor));
+    }
+
+    function renderRows(matches) {
+      const body = $('rows');
+      body.innerHTML = '';
+      matches.slice(0, 200).forEach((m, i) => {
+        const tr = document.createElement('tr');
+        const cells = [String(i + 1), null, `${number.format(m.index)}–${number.format(m.index + m.text.length)}`, null];
+        cells.forEach((value, c) => {
+          const td = document.createElement('td');
+          if (c === 0 || c === 2) { td.className = 'num'; td.textContent = value; }
+          if (c === 1) {
+            const code = document.createElement('code');
+            code.textContent = m.text === '' ? '(empty)' : m.text;
+            td.append(code);
+          }
+          if (c === 3) {
+            const wrap = document.createElement('div');
+            wrap.className = 'groups';
+            const named = m.named ? Object.entries(m.named) : [];
+            const entries = named.length ? named : m.groups.map((g, k) => [`$${k + 1}`, g]);
+            if (!entries.length) wrap.textContent = '—';
+            entries.forEach(([name, value]) => {
+              const span = document.createElement('span');
+              span.append(`${name}: `);
+              const b = document.createElement('b');
+              b.textContent = value === undefined ? '(none)' : value;
+              span.append(b);
+              wrap.append(span);
+            });
+            td.append(wrap);
+          }
+          tr.append(td);
+        });
+        body.append(tr);
+      });
+    }
+
+    function run() {
+      const pattern = patternInput.value;
+      const text = textInput.value;
+      $('flags-text').textContent = flags();
+      if (pattern === '') {
+        showError('');
+        $('count').textContent = 'Type a pattern';
+        $('count').classList.remove('is-hit');
+        renderPreview($('preview'), text, []);
+        $('rows').innerHTML = '';
+        $('replaced').textContent = text;
+        lastReplaced = text;
+        return;
+      }
+      const id = ++requestId;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (id !== requestId) return;
+        // Too slow: stop the worker and start a fresh one for the next try
+        worker.terminate();
+        worker = new Worker(workerUrl);
+        worker.onmessage = onResult;
+        showError('This pattern took more than a second, probably because of catastrophic backtracking. Try making nested repeats like (a+)+ more specific.');
+        $('count').textContent = 'Stopped';
+        $('count').classList.remove('is-hit');
+      }, TIMEOUT);
+      worker.postMessage({ id, pattern, flags: flags(), text, replacement: replacementInput.value, limit: LIMIT });
+    }
+
+    function onResult(event) {
+      const data = event.data;
+      if (data.id !== requestId) return;
+      clearTimeout(timer);
+      const text = textInput.value;
+      if (!data.ok) {
+        showError(data.error.replace(/^Invalid regular expression: /, ''));
+        $('count').textContent = 'Invalid pattern';
+        $('count').classList.remove('is-hit');
+        renderPreview($('preview'), text, []);
+        $('rows').innerHTML = '';
+        return;
+      }
+      showError('');
+      const n = data.matches.length;
+      $('count').textContent = `${data.capped ? 'First ' : ''}${number.format(n)} ${n === 1 ? 'match' : 'matches'}`;
+      $('count').classList.toggle('is-hit', n > 0);
+      renderPreview($('preview'), text, data.matches);
+      renderRows(data.matches);
+      $('replaced').textContent = data.replaced;
+      lastReplaced = data.replaced;
+    }
+    worker.onmessage = onResult;
+
+    const schedule = () => { clearTimeout(debounce); debounce = setTimeout(run, 120); $('note').textContent = ''; };
+    [patternInput, textInput, replacementInput].forEach((el) => el.addEventListener('input', schedule));
+    flagButtons.forEach((button) => button.addEventListener('click', () => {
+      button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+      run();
+    }));
+    $('copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(lastReplaced);
+        $('note').textContent = 'Copied the replaced text.';
+      } catch {
+        $('note').textContent = 'Couldn’t copy automatically. Select the text above and copy it.';
+      }
+    });
+
+    patternInput.value = SAMPLE.pattern;
+    textInput.value = SAMPLE.text;
+    replacementInput.value = SAMPLE.replacement;
+    run();
+  })();
+  </script>
+</body>
+</html>
