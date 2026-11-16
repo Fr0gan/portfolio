@@ -86,7 +86,8 @@
     }
 
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .actions .btn--primary { grid-column: 1 / -1; }
+    .actions .btn--primary,
+    .actions .is-wide { grid-column: 1 / -1; }
 
     @media (max-width: 860px) {
       .studio { grid-template-columns: 1fr; }
@@ -144,6 +145,7 @@
           <button type="button" class="btn" id="clear">Clear</button>
           <button type="button" class="btn" id="blob">Load blob</button>
           <button type="button" class="btn btn--primary" id="download">⬇ Download PNG</button>
+          <button type="button" class="btn is-wide" id="download-svg">⬇ Download SVG</button>
         </section>
       </aside>
     </div>
@@ -512,6 +514,33 @@
       link.download = 'pixel-art.png';
       link.href = out.toDataURL('image/png');
       link.click();
+    });
+
+    // Vector export: each run of same-colored pixels in a row becomes one rectangle
+    function toSVG() {
+      const rects = [];
+      for (let y = 0; y < size; y += 1) {
+        let x = 0;
+        while (x < size) {
+          const value = pixels[y * size + x];
+          let run = 1;
+          while (x + run < size && pixels[y * size + x + run] === value) run += 1;
+          if (value) rects.push(`<rect x="${x}" y="${y}" width="${run}" height="1" fill="${value}"/>`);
+          x += run;
+        }
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size * 16}" height="${size * 16}" shape-rendering="crispEdges"><title>Pixel art</title>${rects.join('')}</svg>`;
+    }
+
+    document.getElementById('download-svg').addEventListener('click', () => {
+      const url = URL.createObjectURL(new Blob([toSVG()], { type: 'image/svg+xml' }));
+      const link = document.createElement('a');
+      link.download = 'pixel-art.svg';
+      link.href = url;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
 
     document.addEventListener('keydown', (e) => {

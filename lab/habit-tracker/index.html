@@ -80,6 +80,11 @@
     .link-button:hover { color: var(--danger); }
     .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; }
     .empty { padding: 28px; border: 1px dashed var(--border-strong); border-radius: var(--radius); color: var(--muted); text-align: center; }
+    .backup { display: grid; gap: 10px; margin-top: 16px; }
+    .backup__title { font-family: var(--font-head); font-size: 1.05rem; }
+    .backup p { color: var(--muted); font-size: 0.92rem; }
+    .backup__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .backup__status.is-error { color: var(--danger); }
 
     @media (max-width: 420px) {
       .week { gap: 4px; }
@@ -113,6 +118,17 @@
 
     <ul class="habits" id="habits" aria-label="Habits"></ul>
     <p class="empty" id="empty" hidden>No habits yet. Add one above to start a streak.</p>
+
+    <section class="panel backup" aria-labelledby="backup-title">
+      <h2 class="backup__title" id="backup-title">Backup</h2>
+      <p>Your habits live in this browser. Save a backup file to keep them safe or move them to another device. Importing a backup merges it with the habits you already have.</p>
+      <div class="backup__actions">
+        <button class="btn" id="export" type="button">Export backup</button>
+        <button class="btn" id="import" type="button">Import backup</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden />
+      </div>
+      <p class="backup__status" id="backup-status" role="status"></p>
+    </section>
 
     <p class="footnote">A Lab experiment, inspired by the 100-day coding streak I kept. A streak counts back from today, or from yesterday if today isn't checked yet, so it doesn't reset until a full day is missed. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/habit-tracker" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
@@ -305,6 +321,65 @@
       save();
       render();
       $('new-habit').focus();
+    });
+
+    /* ---------- Backup ---------- */
+    const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+    const backupStatus = (message, error = false) => {
+      $('backup-status').textContent = message;
+      $('backup-status').classList.toggle('is-error', error);
+    };
+
+    $('export').addEventListener('click', () => {
+      const data = {
+        app: 'habit-tracker',
+        version: 1,
+        exported: new Date().toISOString(),
+        habits: state.habits.map(({ name, days }) => ({ name, days: [...days].sort() })),
+      };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const link = Object.assign(document.createElement('a'), { href: url, download: `habits-${keyOf(new Date())}.json` });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      backupStatus(`Exported ${state.habits.length} ${state.habits.length === 1 ? 'habit' : 'habits'}.`);
+    });
+
+    $('import').addEventListener('click', () => $('import-file').click());
+    $('import-file').addEventListener('change', async () => {
+      const file = $('import-file').files[0];
+      $('import-file').value = '';
+      if (!file) return;
+      let data = null;
+      try { data = JSON.parse(await file.text()); } catch { /* not JSON */ }
+      const habits = data && data.app === 'habit-tracker' && Array.isArray(data.habits)
+        ? data.habits.filter((h) => h && typeof h.name === 'string' && h.name.trim() && Array.isArray(h.days))
+        : null;
+      if (!habits) {
+        backupStatus("That file isn't a Habit Tracker backup. Choose a file made with Export backup.", true);
+        return;
+      }
+      // A backup replaces the example habits, and merges with real ones
+      if (state.sample) state = { sample: false, habits: [] };
+      let added = 0;
+      let merged = 0;
+      habits.forEach((h) => {
+        const name = h.name.trim().slice(0, 50);
+        const days = h.days.filter((d) => typeof d === 'string' && DATE_PATTERN.test(d));
+        const existing = state.habits.find((x) => x.name.toLowerCase() === name.toLowerCase());
+        if (existing) {
+          existing.days = [...new Set([...existing.days, ...days])];
+          merged += 1;
+        } else {
+          state.habits.push({ id: uid(), name, days: [...new Set(days)] });
+          added += 1;
+        }
+      });
+      state.sample = false;
+      save();
+      render();
+      backupStatus(`Imported ${habits.length} ${habits.length === 1 ? 'habit' : 'habits'}: ${added} new, ${merged} merged with ones you already had.`);
     });
 
     // Re-render after midnight so "today" moves on if the page stays open
