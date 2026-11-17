@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Unit Converter | Logan Loftus</title>
+  <meta name="description" content="Convert length, weight, temperature, volume, speed, area, data and time, in both directions, with every unit shown at once." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .categories { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .categories button {
+      padding: 6px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.92rem;
+      cursor: pointer;
+    }
+    .categories button:hover { color: var(--text); border-color: var(--text); }
+    .categories button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
+
+    .converter { display: grid; gap: 14px; }
+    .sides { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 12px; }
+    .side { display: grid; gap: 8px; }
+    .side label { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .side input, .side select {
+      width: 100%;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .side input { font-family: var(--font-head); font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .side input:focus, .side select:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .side input[aria-invalid="true"] { border-color: var(--danger); }
+    .swap { width: 44px; height: 44px; margin-bottom: 52px; padding: 0; font-size: 1.2rem; }
+    .explain { padding: 10px 14px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-family: var(--font-mono); font-size: 0.88rem; overflow-wrap: anywhere; }
+
+    .table-wrap { overflow-x: auto; margin-top: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+    td.value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+    tr.is-from td, tr.is-to td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+    tr button { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-align: left; cursor: pointer; }
+    tr button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    @media (max-width: 640px) {
+      .sides { grid-template-columns: 1fr; }
+      .swap { justify-self: center; margin: 0; transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Unit Converter</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Unit Converter</h1>
+      <p>Pick a kind of measurement, type a number on either side, and see it converted instantly, along with every other unit in the table below. Your last choice is remembered.</p>
+    </div>
+
+    <div class="categories" id="categories" role="group" aria-label="Kind of measurement"></div>
+
+    <section class="panel converter" aria-label="Converter">
+      <div class="sides">
+        <div class="side">
+          <label for="from-value">From</label>
+          <input id="from-value" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" />
+          <select id="from-unit" aria-label="From unit"></select>
+        </div>
+        <button class="btn swap" id="swap" type="button" aria-label="Swap units" title="Swap units">⇄</button>
+        <div class="side">
+          <label for="to-value">To</label>
+          <input id="to-value" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" />
+          <select id="to-unit" aria-label="To unit"></select>
+        </div>
+      </div>
+      <p class="explain" id="explain" aria-live="polite"></p>
+    </section>
+
+    <div class="table-wrap">
+      <table>
+        <caption class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">The same amount in every unit</caption>
+        <thead><tr><th scope="col">Unit</th><th scope="col" style="text-align:right">Amount</th></tr></thead>
+        <tbody id="all"></tbody>
+      </table>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Every unit is defined by an exact factor to a base unit (meters, kilograms, liters and so on), and temperatures use their formulas. US customary volumes are used unless a unit says UK. A year is 365.25 days. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/unit-converter" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    // Each unit: [id, name, factor to the category's base unit]
+    const CATEGORIES = {
+      length: { label: 'Length', units: [
+        ['mm', 'millimeter', 0.001], ['cm', 'centimeter', 0.01], ['m', 'meter', 1], ['km', 'kilometer', 1000],
+        ['in', 'inch', 0.0254], ['ft', 'foot', 0.3048], ['yd', 'yard', 0.9144], ['mi', 'mile', 1609.344], ['nmi', 'nautical mile', 1852],
+      ], defaults: ['mi', 'km'] },
+      weight: { label: 'Weight', units: [
+        ['mg', 'milligram', 1e-6], ['g', 'gram', 0.001], ['kg', 'kilogram', 1], ['t', 'metric ton', 1000],
+        ['oz', 'ounce', 0.028349523125], ['lb', 'pound', 0.45359237], ['st', 'stone', 6.35029318], ['ton', 'US ton', 907.18474],
+      ], defaults: ['lb', 'kg'] },
+      temperature: { label: 'Temperature', units: [
+        ['c', 'degree Celsius'], ['f', 'degree Fahrenheit'], ['k', 'kelvin'],
+      ], defaults: ['f', 'c'] },
+      volume: { label: 'Volume', units: [
+        ['ml', 'milliliter', 0.001], ['l', 'liter', 1], ['m3', 'cubic meter', 1000], ['tsp', 'teaspoon', 0.00492892159375],
+        ['tbsp', 'tablespoon', 0.01478676478125], ['floz', 'fluid ounce', 0.0295735295625], ['cup', 'cup', 0.2365882365],
+        ['pt', 'pint', 0.473176473], ['qt', 'quart', 0.946352946], ['gal', 'gallon', 3.785411784], ['ukgal', 'UK gallon', 4.54609],
+      ], defaults: ['cup', 'ml'] },
+      speed: { label: 'Speed', units: [
+        ['mps', 'meter per second', 1], ['kph', 'kilometer per hour', 1 / 3.6], ['mph', 'mile per hour', 0.44704],
+        ['fps', 'foot per second', 0.3048], ['kn', 'knot', 1852 / 3600],
+      ], defaults: ['mph', 'kph'] },
+      area: { label: 'Area', units: [
+        ['m2', 'square meter', 1], ['km2', 'square kilometer', 1e6], ['ft2', 'square foot', 0.09290304], ['yd2', 'square yard', 0.83612736],
+        ['ac', 'acre', 4046.8564224], ['ha', 'hectare', 10000], ['mi2', 'square mile', 2589988.110336],
+      ], defaults: ['ac', 'ft2'] },
+      data: { label: 'Data', units: [
+        ['bit', 'bit', 0.125], ['B', 'byte', 1], ['KB', 'kilobyte', 1e3], ['MB', 'megabyte', 1e6], ['GB', 'gigabyte', 1e9], ['TB', 'terabyte', 1e12],
+        ['KiB', 'kibibyte', 1024], ['MiB', 'mebibyte', 1024 ** 2], ['GiB', 'gibibyte', 1024 ** 3],
+      ], defaults: ['GiB', 'GB'] },
+      time: { label: 'Time', units: [
+        ['s', 'second', 1], ['min', 'minute', 60], ['h', 'hour', 3600], ['d', 'day', 86400], ['wk', 'week', 604800], ['yr', 'year', 31557600],
+      ], defaults: ['wk', 'h'] },
+    };
+
+    // Temperatures aren't a simple factor, so convert through Celsius
+    const TO_C = { c: (v) => v, f: (v) => ((v - 32) * 5) / 9, k: (v) => v - 273.15 };
+    const FROM_C = { c: (v) => v, f: (v) => (v * 9) / 5 + 32, k: (v) => v + 273.15 };
+
+    function convert(category, value, from, to) {
+      if (category === 'temperature') return FROM_C[to](TO_C[from](value));
+      const units = CATEGORIES[category].units;
+      const factor = (id) => units.find((u) => u[0] === id)[2];
+      return (value * factor(from)) / factor(to);
+    }
+
+    const sig = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 10 });
+    function format(n) {
+      if (!Number.isFinite(n)) return '—';
+      if (n === 0) return '0';
+      const abs = Math.abs(n);
+      if (abs >= 1e15 || abs < 1e-6) return n.toExponential(6).replace(/\.?0+e/, 'e');
+      return sig.format(n);
+    }
+    const parse = (text) => {
+      const cleaned = text.trim().replace(/,/g, '');
+      if (cleaned === '' || !/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(cleaned)) return NaN;
+      return Number(cleaned);
+    };
+    const IRREGULAR = {
+      inch: 'inches', foot: 'feet', 'square foot': 'square feet', stone: 'stone',
+      'degree Celsius': 'degrees Celsius', 'degree Fahrenheit': 'degrees Fahrenheit',
+      'meter per second': 'meters per second', 'kilometer per hour': 'kilometers per hour',
+      'mile per hour': 'miles per hour', 'foot per second': 'feet per second',
+    };
+    const plural = (name, value) => (Math.abs(value) === 1 ? name : IRREGULAR[name] || `${name}s`);
+    const ABBR = {
+      kph: 'km/h', mps: 'm/s', fps: 'ft/s', m2: 'm²', km2: 'km²', ft2: 'ft²', yd2: 'yd²', mi2: 'mi²',
+      m3: 'm³', floz: 'fl oz', ukgal: 'UK gal', c: '°C', f: '°F', k: 'K', yr: 'yr',
+    };
+    const optionLabel = (id, name) => {
+      const abbr = ABBR[id] || id;
+      return abbr === name ? name : `${name} (${abbr})`;
+    };
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem('unit-converter')) || {}; } catch { return {}; } },
+      set(value) { try { localStorage.setItem('unit-converter', JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const fromValue = $('from-value');
+    const toValue = $('to-value');
+    const fromUnit = $('from-unit');
+    const toUnit = $('to-unit');
+    const saved = store.get();
+    let category = CATEGORIES[saved.category] ? saved.category : 'length';
+
+    // Category buttons
+    Object.entries(CATEGORIES).forEach(([id, c]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.category = id;
+      button.textContent = c.label;
+      button.addEventListener('click', () => setCategory(id));
+      $('categories').append(button);
+    });
+
+    function setCategory(id, units) {
+      category = id;
+      document.querySelectorAll('[data-category]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.category === id)));
+      const options = CATEGORIES[id].units.map(([u, name]) => `<option value="${u}">${optionLabel(u, name)}</option>`).join('');
+      fromUnit.innerHTML = options;
+      toUnit.innerHTML = options;
+      const [a, b] = units || CATEGORIES[id].defaults;
+      fromUnit.value = a;
+      toUnit.value = b;
+      if (!units) fromValue.value = '1';
+      update('from');
+    }
+
+    // direction: which input the person typed in
+    function update(direction = 'from') {
+      const source = direction === 'from' ? fromValue : toValue;
+      const target = direction === 'from' ? toValue : fromValue;
+      const value = parse(source.value);
+      source.setAttribute('aria-invalid', String(source.value.trim() !== '' && Number.isNaN(value)));
+      target.removeAttribute('aria-invalid');
+      const [a, b] = direction === 'from' ? [fromUnit.value, toUnit.value] : [toUnit.value, fromUnit.value];
+      const base = Number.isNaN(value) ? NaN : value;
+      target.value = Number.isNaN(base) ? '' : format(convert(category, base, a, b));
+
+      // One-line explanation of the relationship
+      const unitName = (u) => CATEGORIES[category].units.find((x) => x[0] === u)[1];
+      if (category === 'temperature') {
+        const formulas = { 'c-f': '°F = °C × 9/5 + 32', 'f-c': '°C = (°F − 32) × 5/9', 'c-k': 'K = °C + 273.15', 'k-c': '°C = K − 273.15', 'f-k': 'K = (°F − 32) × 5/9 + 273.15', 'k-f': '°F = (K − 273.15) × 9/5 + 32' };
+        $('explain').textContent = formulas[`${fromUnit.value}-${toUnit.value}`] || 'Same unit';
+      } else {
+        const one = convert(category, 1, fromUnit.value, toUnit.value);
+        $('explain').textContent = `1 ${unitName(fromUnit.value)} = ${format(one)} ${plural(unitName(toUnit.value), one)}`;
+      }
+
+      // Every unit at once, based on the "from" side
+      const fromAmount = direction === 'from' ? base : parse(fromValue.value);
+      const body = $('all');
+      body.innerHTML = '';
+      CATEGORIES[category].units.forEach(([u, name]) => {
+        const tr = document.createElement('tr');
+        if (u === fromUnit.value) tr.className = 'is-from';
+        else if (u === toUnit.value) tr.className = 'is-to';
+        const nameCell = document.createElement('td');
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.textContent = name;
+        pick.setAttribute('aria-label', `Convert to ${name}`);
+        pick.addEventListener('click', () => { toUnit.value = u; update('from'); });
+        nameCell.append(pick);
+        const valueCell = document.createElement('td');
+        valueCell.className = 'value';
+        valueCell.textContent = Number.isNaN(fromAmount) ? '—' : format(convert(category, fromAmount, fromUnit.value, u));
+        tr.append(nameCell, valueCell);
+        body.append(tr);
+      });
+
+      store.set({ category, from: fromUnit.value, to: toUnit.value });
+    }
+
+    fromValue.addEventListener('input', () => update('from'));
+    toValue.addEventListener('input', () => update('to'));
+    fromUnit.addEventListener('change', () => update('from'));
+    toUnit.addEventListener('change', () => update('from'));
+    $('swap').addEventListener('click', () => {
+      [fromUnit.value, toUnit.value] = [toUnit.value, fromUnit.value];
+      fromValue.value = toValue.value || fromValue.value;
+      update('from');
+    });
+
+    const unitsValid = saved.category === category
+      && CATEGORIES[category].units.some((u) => u[0] === saved.from)
+      && CATEGORIES[category].units.some((u) => u[0] === saved.to);
+    fromValue.value = '1';
+    setCategory(category, unitsValid ? [saved.from, saved.to] : null);
+  })();
+  </script>
+</body>
+</html>
