@@ -103,8 +103,10 @@
     .groups b { color: var(--text); font-weight: 500; }
 
     .replace { display: grid; gap: 8px; }
-    .replace__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .panel__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .panel__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 12px; }
     .note { min-height: 1.4em; color: var(--muted); font-size: 0.88rem; }
+    .panel__actions .note { min-height: 0; }
 
     details.cheats summary { font-family: var(--font-head); font-size: 1.05rem; font-weight: 600; cursor: pointer; }
     .cheats dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 20px; margin-top: 12px; }
@@ -122,12 +124,18 @@
   <main class="page">
     <div class="page-head">
       <h1>Regex Tester</h1>
-      <p>Write a JavaScript regular expression and see what it matches as you type, including capture groups, then preview a find-and-replace. Patterns run in a background worker with a time limit, so a runaway pattern can't freeze the page.</p>
+      <p>Write a JavaScript regular expression and see what it matches as you type, including capture groups, then preview a find-and-replace. Patterns run in a background worker with a time limit, so a runaway pattern can't freeze the page. Copy a link to share a pattern together with its test text.</p>
     </div>
 
     <div class="stack">
       <section class="panel" aria-labelledby="pattern-title">
-        <h2 class="panel__title" id="pattern-title">Pattern</h2>
+        <div class="panel__head">
+          <h2 class="panel__title" id="pattern-title">Pattern</h2>
+          <div class="panel__actions">
+            <span class="note" id="share-note" role="status"></span>
+            <button class="btn" id="share" type="button">Copy link</button>
+          </div>
+        </div>
         <div class="pattern" id="pattern-box">
           <span class="pattern__slash" aria-hidden="true">/</span>
           <input id="pattern" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Regular expression" aria-describedby="error" />
@@ -161,7 +169,7 @@
       </section>
 
       <section class="panel replace" aria-labelledby="replace-title">
-        <div class="replace__head">
+        <div class="panel__head">
           <h2 class="panel__title" id="replace-title">Replace</h2>
           <button class="btn" id="copy" type="button">Copy result</button>
         </div>
@@ -193,7 +201,7 @@
       </details>
     </div>
 
-    <p class="footnote">A Lab experiment, written in plain JavaScript. Matching runs in a Web Worker that's stopped if it takes longer than a second, which protects the page from patterns with catastrophic backtracking. Up to 1,000 matches are listed. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/regex-tester" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Matching runs in a Web Worker that's stopped if it takes longer than a second, which protects the page from patterns with catastrophic backtracking. Up to 1,000 matches are listed. A shared link keeps the pattern, flags, test text and replacement after the <code>#</code>, the part of an address browsers never send to a server. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/regex-tester" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -358,12 +366,46 @@
     }
     worker.onmessage = onResult;
 
-    const schedule = () => { clearTimeout(debounce); debounce = setTimeout(run, 120); $('note').textContent = ''; };
+    const schedule = () => { clearTimeout(debounce); debounce = setTimeout(run, 120); $('note').textContent = ''; $('share-note').textContent = ''; };
     [patternInput, textInput, replacementInput].forEach((el) => el.addEventListener('input', schedule));
     flagButtons.forEach((button) => button.addEventListener('click', () => {
       button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+      $('share-note').textContent = '';
       run();
     }));
+
+    // Share links keep everything after the #, so the test text never reaches a server
+    function shareUrl() {
+      const params = new URLSearchParams({ p: patternInput.value, f: flags(), t: textInput.value });
+      if (replacementInput.value) params.set('r', replacementInput.value);
+      return `${location.origin}${location.pathname}#${params}`;
+    }
+
+    // Returns true when the address held a shared pattern
+    function loadFromHash() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      if (!params.has('p') && !params.has('t')) return false;
+      patternInput.value = params.get('p') || '';
+      textInput.value = params.get('t') || '';
+      replacementInput.value = params.get('r') || '';
+      const shared = params.get('f');
+      if (shared !== null) flagButtons.forEach((b) => b.setAttribute('aria-pressed', String(shared.includes(b.dataset.flag))));
+      return true;
+    }
+
+    $('share').addEventListener('click', async () => {
+      const url = shareUrl();
+      const long = url.length > 8000 ? ' It’s long, so some apps may shorten or cut it off.' : '';
+      try {
+        await navigator.clipboard.writeText(url);
+        $('share-note').textContent = `Link copied.${long}`;
+      } catch {
+        // No clipboard access: put the link in the address bar instead
+        history.replaceState(null, '', url);
+        $('share-note').textContent = `Copy the link from the address bar.${long}`;
+      }
+    });
+    window.addEventListener('hashchange', () => { if (loadFromHash()) run(); });
     $('copy').addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(lastReplaced);
@@ -373,9 +415,11 @@
       }
     });
 
-    patternInput.value = SAMPLE.pattern;
-    textInput.value = SAMPLE.text;
-    replacementInput.value = SAMPLE.replacement;
+    if (!loadFromHash()) {
+      patternInput.value = SAMPLE.pattern;
+      textInput.value = SAMPLE.text;
+      replacementInput.value = SAMPLE.replacement;
+    }
     run();
   })();
   </script>
