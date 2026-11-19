@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Diff Checker | Logan Loftus</title>
+  <meta name="description" content="Compare two versions of text or code and see what changed, line by line and word by word, then copy the result as a patch." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .stack { display: grid; gap: 16px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+
+    .inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .inputs textarea {
+      display: block;
+      width: 100%;
+      min-height: 13rem;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.55;
+      white-space: pre;
+      overflow: auto;
+      resize: vertical;
+      tab-size: 4;
+    }
+    .inputs textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .compare .toolbar { margin: 14px 0 0; gap: 10px 14px; }
+
+    .result__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+    .result__head h2 { font-family: var(--font-head); font-size: 1.1rem; }
+    .summary { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 0.9rem; }
+    .pill { padding: 2px 10px; border-radius: 999px; font-family: var(--font-mono); font-size: 0.8rem; font-weight: 500; }
+    .pill--del { background: color-mix(in srgb, var(--danger) 13%, transparent); color: color-mix(in srgb, var(--danger) 80%, var(--text)); }
+    .pill--add { background: color-mix(in srgb, var(--success) 13%, transparent); color: color-mix(in srgb, var(--success) 75%, var(--text)); }
+    .note { min-height: 1.4em; margin: 6px 0 8px; color: var(--muted); font-size: 0.88rem; }
+    .empty { padding: 18px; border-radius: 8px; background: var(--surface-2); color: var(--muted); text-align: center; }
+
+    .diff-wrap { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; }
+    .diff { width: 100%; border-collapse: collapse; table-layout: fixed; font-family: var(--font-mono); font-size: 0.84rem; line-height: 1.55; }
+    .diff td { padding: 1px 8px; vertical-align: top; }
+    .diff th {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    /* The header row sets the column widths, since the table layout is fixed */
+    .diff .num { width: 3.2rem; padding-right: 6px; color: var(--muted); text-align: right; font-size: 0.78rem; line-height: 1.75; user-select: none; }
+    .diff th.num { font-size: 0.7rem; line-height: inherit; }
+    .diff .sign { width: 1.5rem; padding: 1px 0 1px 4px; color: var(--muted); user-select: none; }
+    .diff .code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .diff .split-left { border-right: 1px solid var(--border); }
+    .diff .del { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+    .diff .add { background: color-mix(in srgb, var(--success) 10%, transparent); }
+    .diff .del .sign, .diff td.del.num { color: color-mix(in srgb, var(--danger) 80%, var(--text)); }
+    .diff .add .sign, .diff td.add.num { color: color-mix(in srgb, var(--success) 75%, var(--text)); }
+    .diff .blank { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--surface-2) 6px 8px); }
+    .diff del, .diff ins { border-radius: 3px; color: inherit; text-decoration: none; }
+    .diff del { background: color-mix(in srgb, var(--danger) 26%, transparent); }
+    .diff ins { background: color-mix(in srgb, var(--success) 28%, transparent); }
+    .diff .fold td { padding: 0; background: var(--surface-2); }
+    .diff .fold button {
+      display: block;
+      width: 100%;
+      padding: 5px 12px;
+      border: 0;
+      background: none;
+      color: var(--accent);
+      font: inherit;
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      text-align: left;
+      cursor: pointer;
+    }
+    .diff .fold button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    @media (max-width: 700px) {
+      .inputs { grid-template-columns: 1fr; }
+      .inputs textarea { min-height: 9rem; }
+      .diff { font-size: 0.78rem; }
+      .diff .num { width: 2.4rem; padding: 1px 4px 1px 0; }
+      .diff td { padding-left: 5px; padding-right: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Diff Checker</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Diff Checker</h1>
+      <p>Paste two versions of some text or code to see exactly what changed, line by line and word by word, then copy the changes as a patch. Everything runs in your browser. Nothing you paste is sent anywhere or saved.</p>
+    </div>
+
+    <div class="stack">
+      <section class="panel compare" aria-label="Texts to compare">
+        <div class="inputs">
+          <div>
+            <label class="label" for="original">Original</label>
+            <textarea id="original" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          </div>
+          <div>
+            <label class="label" for="changed">Changed</label>
+            <textarea id="changed" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="segmented" role="group" aria-label="View">
+            <button type="button" data-view="split" aria-pressed="true">Side by side</button>
+            <button type="button" data-view="inline" aria-pressed="false">Inline</button>
+          </div>
+          <label class="field"><input type="checkbox" id="ignore-case" /> Ignore case</label>
+          <label class="field"><input type="checkbox" id="ignore-space" /> Ignore whitespace</label>
+          <span class="toolbar__spacer"></span>
+          <button class="btn" id="swap" type="button">Swap</button>
+          <button class="btn" id="clear" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="result-title">
+        <div class="result__head">
+          <h2 id="result-title">Changes</h2>
+          <p class="summary" id="summary" role="status"></p>
+          <span class="toolbar__spacer"></span>
+          <button class="btn" id="copy-patch" type="button">Copy as patch</button>
+        </div>
+        <p class="note" id="note" role="status"></p>
+        <div id="output"></div>
+      </section>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Lines are matched with a longest-common-subsequence diff after trimming the parts that are the same at the start and end, then each changed pair of lines is compared word by word. Patches use the standard unified diff format, so tools like <code>patch</code> can apply them. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/diff-checker" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const CONTEXT = 3;               // unchanged lines kept around each change
+    const MAX_CELLS = 4000000;       // largest line table compared exactly
+    const MAX_WORD_CELLS = 40000;    // largest word table for in-line highlights
+    const SAMPLE_A = [
+      'function greet(name) {',
+      '  const message = "Hello, " + name;',
+      '  console.log(message);',
+      '  return message;',
+      '}',
+      '',
+      '// Say hello to everyone on the list',
+      'for (const person of people) {',
+      '  greet(person);',
+      '}',
+    ].join('\n');
+    const SAMPLE_B = [
+      'function greet(name, punctuation = "!") {',
+      '  const message = `Hello, ${name}${punctuation}`;',
+      '  console.log(message);',
+      '  return message;',
+      '}',
+      '',
+      '// Say hello to everyone on the list',
+      'for (const person of people) {',
+      '  greet(person.name, person.excited ? "!" : ".");',
+      '}',
+      '',
+      'export default greet;',
+    ].join('\n');
+
+    const $ = (id) => document.getElementById(id);
+    const original = $('original');
+    const changed = $('changed');
+    const viewButtons = [...document.querySelectorAll('[data-view]')];
+    const number = new Intl.NumberFormat('en-US');
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem('diff-checker')) || {}; } catch { return {}; } },
+      set(value) { try { localStorage.setItem('diff-checker', JSON.stringify(value)); } catch {} },
+    };
+
+    let state = { ops: [], a: [], b: [], approximate: false };
+    let expanded = new Set();   // folds the person opened, by the index of their first op
+
+    // Lines without the line ending, treating Windows and old Mac endings the same.
+    // A final newline doesn't make an extra empty line.
+    const toLines = (text) => (text === '' ? [] : text.replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n'));
+
+    function keyFor() {
+      const ignoreCase = $('ignore-case').checked;
+      const ignoreSpace = $('ignore-space').checked;
+      return (s) => {
+        let k = ignoreSpace ? s.replace(/\s+/g, '') : s;
+        if (ignoreCase) k = k.toLowerCase();
+        return k;
+      };
+    }
+
+    // Longest common subsequence of two lists, as a list of
+    // { type: 'same' | 'del' | 'add', a, b } where a and b are indexes into each list.
+    function diff(listA, listB, key, maxCells) {
+      const ka = listA.map(key);
+      const kb = listB.map(key);
+      let start = 0;
+      while (start < ka.length && start < kb.length && ka[start] === kb[start]) start += 1;
+      let endA = ka.length;
+      let endB = kb.length;
+      while (endA > start && endB > start && ka[endA - 1] === kb[endB - 1]) { endA -= 1; endB -= 1; }
+
+      const ops = [];
+      for (let i = 0; i < start; i += 1) ops.push({ type: 'same', a: i, b: i });
+      const n = endA - start;
+      const m = endB - start;
+      let approximate = false;
+      if (n && m && n * m <= maxCells) {
+        // table[i][j] = length of the LCS of A[i..] and B[j..]. It can't exceed
+        // min(n, m), which is at most 2,000 here, so 16 bits are enough.
+        const width = m + 1;
+        const table = new Uint16Array((n + 1) * width);
+        for (let i = n - 1; i >= 0; i -= 1) {
+          for (let j = m - 1; j >= 0; j -= 1) {
+            table[i * width + j] = ka[start + i] === kb[start + j]
+              ? table[(i + 1) * width + j + 1] + 1
+              : Math.max(table[(i + 1) * width + j], table[i * width + j + 1]);
+          }
+        }
+        let i = 0;
+        let j = 0;
+        while (i < n || j < m) {
+          if (i < n && j < m && ka[start + i] === kb[start + j]) {
+            ops.push({ type: 'same', a: start + i, b: start + j }); i += 1; j += 1;
+          } else if (j >= m || (i < n && table[(i + 1) * width + j] >= table[i * width + j + 1])) {
+            ops.push({ type: 'del', a: start + i }); i += 1;      // removals first within a change
+          } else {
+            ops.push({ type: 'add', b: start + j }); j += 1;
+          }
+        }
+      } else {
+        // Too big to compare exactly: show the middle as removed, then added
+        approximate = n > 0 && m > 0;
+        for (let i = start; i < endA; i += 1) ops.push({ type: 'del', a: i });
+        for (let j = start; j < endB; j += 1) ops.push({ type: 'add', b: j });
+      }
+      for (let i = endA, j = endB; i < ka.length; i += 1, j += 1) ops.push({ type: 'same', a: i, b: j });
+      return { ops, approximate };
+    }
+
+    // Splits a changed pair of lines into words and marks the parts that differ.
+    // Returns null when the lines have too little in common for highlights to help.
+    function wordDiff(oldLine, newLine, key, ignoreSpace) {
+      const tokenize = (s) => s.match(/\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu) || [];
+      const ta = tokenize(oldLine);
+      const tb = tokenize(newLine);
+      if (!ta.length || !tb.length) return null;
+      const { ops } = diff(ta, tb, key, MAX_WORD_CELLS);
+      let common = 0;
+      ops.forEach((op) => { if (op.type === 'same') common += ta[op.a].trim().length; });
+      const longest = Math.max(oldLine.replace(/\s/g, '').length, newLine.replace(/\s/g, '').length);
+      if (!longest || common / longest < 0.4) return null;
+      const oldParts = [];
+      const newParts = [];
+      const push = (parts, text, marked) => {
+        const mark = marked && !(ignoreSpace && !text.trim());
+        const last = parts[parts.length - 1];
+        if (last && last.marked === mark) last.text += text;
+        else parts.push({ text, marked: mark });
+      };
+      ops.forEach((op) => {
+        if (op.type === 'same') { push(oldParts, ta[op.a], false); push(newParts, tb[op.b], false); }
+        if (op.type === 'del') push(oldParts, ta[op.a], true);
+        if (op.type === 'add') push(newParts, tb[op.b], true);
+      });
+      return { oldParts, newParts };
+    }
+
+    // Groups ops into runs of unchanged lines and blocks of changes
+    function blocks(ops) {
+      const result = [];
+      ops.forEach((op, index) => {
+        const kind = op.type === 'same' ? 'same' : 'change';
+        let last = result[result.length - 1];
+        if (!last || last.kind !== kind) { last = { kind, start: index, ops: [] }; result.push(last); }
+        last.ops.push(op);
+      });
+      return result;
+    }
+
+    function codeCell(text, parts, tag, extraClass) {
+      const td = document.createElement('td');
+      td.className = `code ${extraClass}`;
+      if (parts) {
+        parts.forEach((part) => {
+          if (part.marked) {
+            const el = document.createElement(tag);
+            el.textContent = part.text;
+            td.append(el);
+          } else {
+            td.append(part.text);
+          }
+        });
+      } else {
+        td.textContent = text;
+      }
+      return td;
+    }
+
+    function numCell(n, extraClass = '') {
+      const td = document.createElement('td');
+      td.className = `num ${extraClass}`;
+      td.textContent = n === undefined ? '' : String(n + 1);
+      return td;
+    }
+
+    function signCell(kind) {
+      const td = document.createElement('td');
+      td.className = 'sign';
+      const visible = document.createElement('span');
+      visible.setAttribute('aria-hidden', 'true');
+      visible.textContent = kind === 'del' ? '−' : kind === 'add' ? '+' : '';
+      td.append(visible);
+      if (kind !== 'same') {
+        const label = document.createElement('span');
+        label.className = 'sr-only';
+        label.textContent = kind === 'del' ? 'Removed' : 'Added';
+        td.append(label);
+      }
+      return td;
+    }
+
+    function render() {
+      const { ops, a, b, approximate } = state;
+      const output = $('output');
+      output.textContent = '';
+      const dels = ops.filter((op) => op.type === 'del').length;
+      const adds = ops.filter((op) => op.type === 'add').length;
+      const summary = $('summary');
+      summary.textContent = '';
+      $('copy-patch').disabled = !(dels || adds);
+
+      if (!a.length && !b.length) {
+        summary.textContent = 'Nothing to compare';
+        output.innerHTML = '<p class="empty">Paste text into both boxes to compare them.</p>';
+        return;
+      }
+      if (!dels && !adds) {
+        const ignoring = [$('ignore-case').checked && 'case', $('ignore-space').checked && 'whitespace'].filter(Boolean);
+        const exact = original.value.replace(/\r\n?/g, '\n') === changed.value.replace(/\r\n?/g, '\n');
+        summary.textContent = 'No differences';
+        output.innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'empty';
+        p.textContent = exact || !ignoring.length ? 'The two texts are the same.' : `The texts only differ in ${ignoring.join(' and ')}, which you've chosen to ignore.`;
+        output.append(p);
+        return;
+      }
+      const pill = (text, kind) => {
+        const span = document.createElement('span');
+        span.className = `pill pill--${kind}`;
+        span.textContent = text;
+        return span;
+      };
+      summary.append(
+        pill(`−${number.format(dels)} ${dels === 1 ? 'line' : 'lines'}`, 'del'),
+        pill(`+${number.format(adds)} ${adds === 1 ? 'line' : 'lines'}`, 'add'),
+      );
+
+      const split = viewButtons.find((btn) => btn.dataset.view === 'split').getAttribute('aria-pressed') === 'true';
+      const key = keyFor();
+      const ignoreSpace = $('ignore-space').checked;
+      const table = document.createElement('table');
+      table.className = `diff diff--${split ? 'split' : 'inline'}`;
+      const caption = document.createElement('caption');
+      caption.className = 'sr-only';
+      caption.textContent = split ? 'Changes side by side: original on the left, changed on the right' : 'Changes, with removed lines before added lines';
+      table.append(caption);
+      const head = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      const th = (text, className = '', hidden = false) => {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        if (className) cell.className = className;
+        if (hidden) cell.innerHTML = `<span class="sr-only">${text}</span>`;
+        else cell.textContent = text;
+        return cell;
+      };
+      if (split) headRow.append(th('Line', 'num', true), th('Original'), th('Line', 'num', true), th('Changed'));
+      else headRow.append(th('Old', 'num'), th('New', 'num'), th('Change', 'sign', true), th('Text', '', true));
+      head.append(headRow);
+      table.append(head);
+      const cols = 4;
+      const body = document.createElement('tbody');
+      const all = blocks(ops);
+
+      const sameRow = (op) => {
+        const tr = document.createElement('tr');
+        if (split) tr.append(numCell(op.a), codeCell(a[op.a], null, '', 'split-left'), numCell(op.b), codeCell(b[op.b], null, '', ''));
+        else tr.append(numCell(op.a), numCell(op.b), signCell('same'), codeCell(a[op.a], null, '', ''));
+        body.append(tr);
+      };
+      const foldRow = (count, foldId) => {
+        const tr = document.createElement('tr');
+        tr.className = 'fold';
+        const td = document.createElement('td');
+        td.colSpan = cols;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `Show ${number.format(count)} unchanged ${count === 1 ? 'line' : 'lines'}`;
+        button.addEventListener('click', () => { expanded.add(foldId); render(); });
+        td.append(button);
+        tr.append(td);
+        body.append(tr);
+      };
+
+      all.forEach((block, index) => {
+        if (block.kind === 'same') {
+          const first = index === 0;
+          const last = index === all.length - 1;
+          const keepStart = first ? 0 : CONTEXT;
+          const keepEnd = last ? 0 : CONTEXT;
+          const hidden = block.ops.length - keepStart - keepEnd;
+          if (hidden > 1 && !expanded.has(block.start)) {
+            block.ops.slice(0, keepStart).forEach(sameRow);
+            foldRow(hidden, block.start);
+            block.ops.slice(block.ops.length - keepEnd).forEach(sameRow);
+          } else {
+            block.ops.forEach(sameRow);
+          }
+          return;
+        }
+        const removed = block.ops.filter((op) => op.type === 'del');
+        const added = block.ops.filter((op) => op.type === 'add');
+        const pairs = Math.min(removed.length, added.length);
+        const words = [];
+        for (let k = 0; k < pairs; k += 1) words.push(wordDiff(a[removed[k].a], b[added[k].b], key, ignoreSpace));
+        if (split) {
+          for (let k = 0; k < Math.max(removed.length, added.length); k += 1) {
+            const tr = document.createElement('tr');
+            const del = removed[k];
+            const add = added[k];
+            const w = words[k];
+            if (del) tr.append(numCell(del.a, 'del'), codeCell(a[del.a], w && w.oldParts, 'del', 'del split-left'));
+            else tr.append(numCell(undefined, 'blank'), codeCell('', null, '', 'blank split-left'));
+            if (add) tr.append(numCell(add.b, 'add'), codeCell(b[add.b], w && w.newParts, 'ins', 'add'));
+            else tr.append(numCell(undefined, 'blank'), codeCell('', null, '', 'blank'));
+            // Screen readers hear which side changed
+            if (del) tr.children[1].prepend(Object.assign(document.createElement('span'), { className: 'sr-only', textContent: 'Removed: ' }));
+            if (add) tr.children[3].prepend(Object.assign(document.createElement('span'), { className: 'sr-only', textContent: 'Added: ' }));
+            body.append(tr);
+          }
+        } else {
+          removed.forEach((op, k) => {
+            const tr = document.createElement('tr');
+            tr.className = 'del';
+            tr.append(numCell(op.a), numCell(undefined), signCell('del'), codeCell(a[op.a], words[k] && words[k].oldParts, 'del', ''));
+            body.append(tr);
+          });
+          added.forEach((op, k) => {
+            const tr = document.createElement('tr');
+            tr.className = 'add';
+            tr.append(numCell(undefined), numCell(op.b), signCell('add'), codeCell(b[op.b], words[k] && words[k].newParts, 'ins', ''));
+            body.append(tr);
+          });
+        }
+      });
+      table.append(body);
+      const wrap = document.createElement('div');
+      wrap.className = 'diff-wrap';
+      wrap.append(table);
+      output.append(wrap);
+      if (approximate) $('note').textContent = 'These texts are large and very different, so the changed part is shown as one block.';
+    }
+
+    // Unified diff, the format git and patch read
+    function patch() {
+      const { ops, a, b } = state;
+      const changes = [];
+      ops.forEach((op, k) => { if (op.type !== 'same') changes.push(k); });
+      if (!changes.length) return '';
+      const oldBefore = [];
+      const newBefore = [];
+      let oldCount = 0;
+      let newCount = 0;
+      ops.forEach((op, k) => {
+        oldBefore[k] = oldCount;
+        newBefore[k] = newCount;
+        if (op.type !== 'add') oldCount += 1;
+        if (op.type !== 'del') newCount += 1;
+      });
+      const hunks = [];
+      let start = Math.max(0, changes[0] - CONTEXT);
+      let end = Math.min(ops.length, changes[0] + 1 + CONTEXT);
+      changes.slice(1).forEach((k) => {
+        if (k - CONTEXT <= end) end = Math.min(ops.length, k + 1 + CONTEXT);
+        else { hunks.push([start, end]); start = k - CONTEXT; end = Math.min(ops.length, k + 1 + CONTEXT); }
+      });
+      hunks.push([start, end]);
+
+      const lines = ['--- original', '+++ changed'];
+      hunks.forEach(([s, e]) => {
+        const slice = ops.slice(s, e);
+        const oldLen = slice.filter((op) => op.type !== 'add').length;
+        const newLen = slice.filter((op) => op.type !== 'del').length;
+        // An empty side points at the line before it, as in GNU diff
+        const oldStart = oldLen ? oldBefore[s] + 1 : oldBefore[s];
+        const newStart = newLen ? newBefore[s] + 1 : newBefore[s];
+        lines.push(`@@ -${oldStart}${oldLen === 1 ? '' : `,${oldLen}`} +${newStart}${newLen === 1 ? '' : `,${newLen}`} @@`);
+        slice.forEach((op) => {
+          if (op.type === 'same') lines.push(` ${a[op.a]}`);
+          if (op.type === 'del') lines.push(`-${a[op.a]}`);
+          if (op.type === 'add') lines.push(`+${b[op.b]}`);
+        });
+      });
+      return `${lines.join('\n')}\n`;
+    }
+
+    function compare() {
+      const a = toLines(original.value);
+      const b = toLines(changed.value);
+      const result = diff(a, b, keyFor(), MAX_CELLS);
+      state = { ops: result.ops, a, b, approximate: result.approximate };
+      expanded = new Set();
+      $('note').textContent = '';
+      render();
+    }
+
+    function saveSettings() {
+      store.set({
+        view: viewButtons.find((btn) => btn.getAttribute('aria-pressed') === 'true').dataset.view,
+        ignoreCase: $('ignore-case').checked,
+        ignoreSpace: $('ignore-space').checked,
+      });
+    }
+
+    let timer = 0;
+    [original, changed].forEach((el) => el.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(compare, 200);
+    }));
+    ['ignore-case', 'ignore-space'].forEach((id) => $(id).addEventListener('change', () => { saveSettings(); compare(); }));
+    viewButtons.forEach((button) => button.addEventListener('click', () => {
+      viewButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn === button)));
+      saveSettings();
+      render();
+    }));
+    $('swap').addEventListener('click', () => {
+      [original.value, changed.value] = [changed.value, original.value];
+      compare();
+    });
+    $('clear').addEventListener('click', () => {
+      original.value = '';
+      changed.value = '';
+      compare();
+      original.focus();
+    });
+    $('copy-patch').addEventListener('click', async () => {
+      const text = patch();
+      try {
+        await navigator.clipboard.writeText(text);
+        $('note').textContent = 'Copied the patch. To apply it, save it as changes.patch and run: patch your-file changes.patch';
+      } catch {
+        // No clipboard access: download it instead
+        const url = URL.createObjectURL(new Blob([text], { type: 'text/x-diff' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'changes.patch';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        $('note').textContent = 'Couldn’t copy, so the patch was downloaded as changes.patch.';
+      }
+    });
+
+    // Saved settings, with side by side on wide screens and inline on phones by default
+    const saved = store.get();
+    const view = saved.view === 'split' || saved.view === 'inline' ? saved.view : (matchMedia('(max-width: 700px)').matches ? 'inline' : 'split');
+    viewButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.view === view)));
+    $('ignore-case').checked = saved.ignoreCase === true;
+    $('ignore-space').checked = saved.ignoreSpace === true;
+    original.value = SAMPLE_A;
+    changed.value = SAMPLE_B;
+    compare();
+  })();
+  </script>
+</body>
+</html>
