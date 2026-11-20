@@ -64,7 +64,7 @@
   <main class="page">
     <div class="page-head">
       <h1>Date Calculator</h1>
-      <p>Count the days between two dates, including how many are weekdays, or find the date a number of days, weeks, months or business days from another. Handy for deadlines, countdowns and planning.</p>
+      <p>Count the days between two dates, including how many are weekdays, or find the date a number of days, weeks, months or business days from another, with the option to skip US federal holidays. Handy for deadlines, countdowns and planning.</p>
     </div>
 
     <div class="layout">
@@ -76,6 +76,7 @@
         </div>
         <div class="row-actions">
           <label class="check"><input type="checkbox" id="inclusive" /> Count the end date too</label>
+          <label class="check"><input type="checkbox" id="between-holidays" /> Skip US federal holidays</label>
           <button class="btn" id="swap" type="button">⇄ Swap</button>
         </div>
         <div class="answer" aria-live="polite">
@@ -87,6 +88,8 @@
           <div><dt>Months</dt><dd id="b-months">—</dd></div>
           <div><dt>Weekdays (Mon–Fri)</dt><dd id="b-weekdays">—</dd></div>
           <div><dt>Weekend days</dt><dd id="b-weekends">—</dd></div>
+          <div data-holidays hidden><dt>Federal holidays</dt><dd id="b-holidays">—</dd></div>
+          <div data-holidays hidden><dt>Working days</dt><dd id="b-working">—</dd></div>
         </dl>
       </section>
 
@@ -105,6 +108,7 @@
             </select>
           </label>
         </div>
+        <label class="check" id="add-holidays-row" hidden><input type="checkbox" id="add-holidays" /> Skip US federal holidays</label>
         <div class="segmented" role="group" aria-label="Direction">
           <button type="button" data-direction="1" aria-pressed="true">Add</button>
           <button type="button" data-direction="-1" aria-pressed="false">Subtract</button>
@@ -123,7 +127,7 @@
       </section>
     </div>
 
-    <p class="footnote">A Lab experiment. Dates are handled in UTC so daylight saving changes never shift a day. Business days skip Saturdays and Sundays but not public holidays. Adding months keeps the day of the month where possible, so January 31 plus one month is the last day of February. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/date-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment. Dates are handled in UTC so daylight saving changes never shift a day. Business days skip Saturdays and Sundays, and can also skip the 11 US federal holidays under today's rules. A holiday that falls on a Saturday is observed the Friday before, and one on a Sunday the Monday after. Juneteenth counts from 2021 and Martin Luther King Jr. Day from 1986. State and local holidays aren't included. Adding months keeps the day of the month where possible, so January 31 plus one month is the last day of February. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/date-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -134,44 +138,118 @@
     const longDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     const plural = (n, word) => `${number.format(n)} ${word}${n === 1 ? '' : 's'}`;
 
-    // All dates are UTC midnights, so subtraction always gives whole days
+    // All dates are UTC midnights, so subtraction always gives whole days.
+    // Date.UTC reads years 0–99 as 1900–1999, so the year is set separately.
+    const utc = (y, m, d) => {
+      const date = new Date(Date.UTC(2000, 0, 1));
+      date.setUTCFullYear(y, m, d);
+      return date;
+    };
     const parse = (value) => {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-      return match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : null;
+      return match ? utc(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : null;
     };
     const toInput = (date) => date.toISOString().slice(0, 10);
     const today = () => {
       const now = new Date();
-      return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      return utc(now.getFullYear(), now.getMonth(), now.getDate());
     };
     const addDays = (date, n) => new Date(date.getTime() + n * DAY);
+    const isWeekend = (date) => date.getUTCDay() === 0 || date.getUTCDay() === 6;
 
     function addMonths(date, n) {
       const y = date.getUTCFullYear();
       const m = date.getUTCMonth() + n;
-      const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-      return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+      const lastDay = utc(y, m + 1, 0).getUTCDate();
+      return utc(y, m, Math.min(date.getUTCDate(), lastDay));
     }
 
-    function addBusinessDays(date, n) {
+    // US federal holidays (5 U.S.C. 6103) under today's rules
+    function nthWeekday(y, month, weekday, n) {
+      if (n > 0) {
+        const first = utc(y, month, 1);
+        return utc(y, month, 1 + ((weekday - first.getUTCDay() + 7) % 7) + (n - 1) * 7);
+      }
+      const last = utc(y, month + 1, 0);   // n = -1: the last one in the month
+      return utc(y, month, last.getUTCDate() - ((last.getUTCDay() - weekday + 7) % 7));
+    }
+
+    function federalHolidays(y) {
+      const MON = 1;
+      const THU = 4;
+      const list = [
+        ['New Year’s Day', utc(y, 0, 1)],
+        y >= 1986 && ['Martin Luther King Jr. Day', nthWeekday(y, 0, MON, 3)],
+        ['Presidents’ Day', nthWeekday(y, 1, MON, 3)],
+        ['Memorial Day', nthWeekday(y, 4, MON, -1)],
+        y >= 2021 && ['Juneteenth', utc(y, 5, 19)],
+        ['Independence Day', utc(y, 6, 4)],
+        ['Labor Day', nthWeekday(y, 8, MON, 1)],
+        ['Columbus Day', nthWeekday(y, 9, MON, 2)],
+        ['Veterans Day', utc(y, 10, 11)],
+        ['Thanksgiving Day', nthWeekday(y, 10, THU, 4)],
+        ['Christmas Day', utc(y, 11, 25)],
+      ].filter(Boolean);
+      // Saturday holidays are observed on Friday, Sunday ones on Monday. That can move
+      // New Year's Day back into the previous year (Saturday, January 1, 2022 → Friday, December 31, 2021).
+      return list.map(([name, date]) => {
+        const shift = date.getUTCDay() === 6 ? -1 : date.getUTCDay() === 0 ? 1 : 0;
+        return { name, date: addDays(date, shift), observed: shift !== 0 };
+      });
+    }
+
+    // Observed holidays in [start, end), oldest first
+    function holidaysBetween(start, end) {
+      const found = [];
+      for (let y = start.getUTCFullYear(); y <= end.getUTCFullYear() + 1; y += 1) {
+        federalHolidays(y).forEach((h) => { if (h.date >= start && h.date < end) found.push(h); });
+      }
+      return found.sort((a, b) => a.date - b.date);
+    }
+
+    const holidayYears = new Map();
+    function isHoliday(date) {
+      const y = date.getUTCFullYear();
+      if (!holidayYears.has(y)) holidayYears.set(y, new Set(holidaysBetween(utc(y, 0, 1), utc(y + 1, 0, 1)).map((h) => h.date.getTime())));
+      return holidayYears.get(y).has(date.getTime());
+    }
+
+    function addBusinessDays(date, n, skipHolidays) {
       if (n === 0) return date;
       const step = n < 0 ? -1 : 1;
+      const isWorkday = (d) => !isWeekend(d) && !(skipHolidays && isHoliday(d));
       let d = date;
-      // Counting from a weekend works as if from the nearest weekday behind you,
+      // Counting from a day off works as if from the nearest working day behind you,
       // so Saturday + 1 business day is Monday and Saturday - 1 is Friday
-      while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = addDays(d, -step);
+      while (!isWorkday(d)) d = addDays(d, -step);
       let left = Math.abs(n);
-      // Jump whole weeks first so large numbers stay fast
-      const weeks = Math.floor(left / 5);
-      d = addDays(d, weeks * 7 * step);
-      left -= weeks * 5;
+      if (!skipHolidays) {
+        // Jump whole weeks first so large numbers stay fast
+        const weeks = Math.floor(left / 5);
+        d = addDays(d, weeks * 7 * step);
+        left -= weeks * 5;
+      }
       while (left > 0) {
         d = addDays(d, step);
-        const day = d.getUTCDay();
-        if (day !== 0 && day !== 6) left -= 1;
+        if (isWorkday(d)) left -= 1;
       }
       return d;
     }
+
+    // "Thanksgiving Day (Nov 26, 2026), Christmas Day (observed Dec 24, 2027) and 3 more"
+    const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    const listFormat = new Intl.ListFormat('en-US', { type: 'conjunction' });
+    function describeHolidays(holidays) {
+      const named = holidays.slice(0, holidays.length > 4 ? 3 : 4).map((h) => `${h.name} (${h.observed ? 'observed ' : ''}${shortDate.format(h.date)})`);
+      if (holidays.length > named.length) named.push(`${number.format(holidays.length - named.length)} more`);
+      return listFormat.format(named);
+    }
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem('date-calculator')) || {}; } catch { return {}; } },
+      set(value) { try { localStorage.setItem('date-calculator', JSON.stringify(value)); } catch {} },
+    };
+    const saveSettings = () => store.set({ betweenHolidays: $('between-holidays').checked, addHolidays: $('add-holidays').checked });
 
     // Weekdays in [start, end), counted without walking every day
     function weekdaysBetween(start, end) {
@@ -203,7 +281,9 @@
     function updateBetween() {
       let start = parse($('from').value);
       let end = parse($('to').value);
-      const ids = ['b-weeks', 'b-months', 'b-weekdays', 'b-weekends'];
+      const ids = ['b-weeks', 'b-months', 'b-weekdays', 'b-weekends', 'b-holidays', 'b-working'];
+      const skipHolidays = $('between-holidays').checked;
+      document.querySelectorAll('[data-holidays]').forEach((el) => { el.hidden = !skipHolidays; });
       if (!start || !end) {
         $('between-days').textContent = '—';
         $('between-sub').textContent = 'Pick both dates.';
@@ -220,13 +300,21 @@
       $('between-days').textContent = plural(days, 'day');
       const from = longDate.format(start);
       const to = longDate.format(end);
-      $('between-sub').textContent = backwards
+      let sub = backwards
         ? `The end date is before the start date, so this counts back from ${to} to ${from}.`
         : `From ${from} to ${to}${inclusive ? ', counting both dates' : ''}.`;
       $('b-weeks').textContent = days % 7 ? `${plural(Math.floor(days / 7), 'week')}, ${plural(days % 7, 'day')}` : plural(days / 7, 'week');
       $('b-months').textContent = monthsAndDays(start, endExclusive);
       $('b-weekdays').textContent = number.format(weekdays);
       $('b-weekends').textContent = number.format(days - weekdays);
+      if (skipHolidays) {
+        // Observed holidays always land on weekdays, so each one is a weekday off
+        const holidays = holidaysBetween(start, endExclusive);
+        $('b-holidays').textContent = number.format(holidays.length);
+        $('b-working').textContent = number.format(weekdays - holidays.length);
+        sub += holidays.length ? ` Working days leave out ${describeHolidays(holidays)}.` : ' There are no federal holidays in this range.';
+      }
+      $('between-sub').textContent = sub;
     }
 
     let direction = 1;
@@ -240,18 +328,29 @@
       }
       const n = amount * direction;
       const unit = $('unit').value;
+      const skipHolidays = unit === 'business' && $('add-holidays').checked;
       let result;
       if (unit === 'days') result = addDays(base, n);
       else if (unit === 'weeks') result = addDays(base, n * 7);
       else if (unit === 'months') result = addMonths(base, n);
       else if (unit === 'years') result = addMonths(base, n * 12);
-      else result = addBusinessDays(base, n);
+      else result = addBusinessDays(base, n, skipHolidays);
 
       const unitName = { days: 'day', business: 'business day', weeks: 'week', months: 'month', years: 'year' }[unit];
       $('add-result').textContent = longDate.format(result);
       const offset = Math.round((result - today()) / DAY);
       const relative = offset === 0 ? 'That’s today.' : offset > 0 ? `That’s ${plural(offset, 'day')} from today.` : `That was ${plural(-offset, 'day')} ago.`;
-      $('add-sub').textContent = `${plural(amount, unitName)} ${direction > 0 ? 'after' : 'before'} ${longDate.format(base)}. ${relative}`;
+      let skipped = '';
+      if (skipHolidays && result.getTime() !== base.getTime()) {
+        const [early, late] = result < base ? [result, base] : [base, result];
+        const holidays = holidaysBetween(addDays(early, 1), late);
+        skipped = holidays.length ? ` Skips ${describeHolidays(holidays)}.` : ' No federal holidays in between.';
+      }
+      $('add-sub').textContent = `${plural(amount, unitName)} ${direction > 0 ? 'after' : 'before'} ${longDate.format(base)}.${skipped} ${relative}`;
+    }
+
+    function showHolidayOption() {
+      $('add-holidays-row').hidden = $('unit').value !== 'business';
     }
 
     ['from', 'to', 'inclusive'].forEach((id) => $(id).addEventListener('input', updateBetween));
@@ -260,8 +359,11 @@
       [$('from').value, $('to').value] = [$('to').value, $('from').value];
       updateBetween();
     });
+    $('between-holidays').addEventListener('change', () => { saveSettings(); updateBetween(); });
+    $('add-holidays').addEventListener('change', () => { saveSettings(); updateAdd(); });
     ['base', 'amount', 'unit'].forEach((id) => $(id).addEventListener('input', updateAdd));
-    $('unit').addEventListener('change', updateAdd);
+    $('unit').addEventListener('change', () => { showHolidayOption(); updateAdd(); });
+    $('unit').addEventListener('input', showHolidayOption);
     document.querySelectorAll('[data-direction]').forEach((button) => {
       button.addEventListener('click', () => {
         direction = Number(button.dataset.direction);
@@ -274,6 +376,7 @@
         const [amount, unit] = button.dataset.preset.split(' ');
         $('amount').value = amount;
         $('unit').value = unit;
+        showHolidayOption();
         updateAdd();
       });
     });
@@ -285,6 +388,10 @@
     $('base').value = toInput(start);
     $('amount').value = '10';
     $('unit').value = 'business';
+    const saved = store.get();
+    $('between-holidays').checked = saved.betweenHolidays === true;
+    $('add-holidays').checked = saved.addHolidays === true;
+    showHolidayOption();
     updateBetween();
     updateAdd();
   })();

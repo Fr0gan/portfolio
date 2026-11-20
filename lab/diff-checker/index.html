@@ -37,6 +37,7 @@
     }
     .inputs textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
     .compare .toolbar { margin: 14px 0 0; gap: 10px 14px; }
+    .toolbar__group { display: flex; gap: 10px; }   /* Swap and Clear wrap together on phones */
 
     .result__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
     .result__head h2 { font-family: var(--font-head); font-size: 1.1rem; }
@@ -132,8 +133,10 @@
           <label class="field"><input type="checkbox" id="ignore-case" /> Ignore case</label>
           <label class="field"><input type="checkbox" id="ignore-space" /> Ignore whitespace</label>
           <span class="toolbar__spacer"></span>
-          <button class="btn" id="swap" type="button">Swap</button>
-          <button class="btn" id="clear" type="button">Clear</button>
+          <div class="toolbar__group">
+            <button class="btn" id="swap" type="button">Swap</button>
+            <button class="btn" id="clear" type="button">Clear</button>
+          </div>
         </div>
       </section>
 
