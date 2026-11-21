@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Loan Calculator | Logan Loftus</title>
+  <meta name="description" content="Monthly payment, total interest, payoff date and a full amortization schedule for a fixed-rate loan, plus what extra payments save." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; gap: 16px; }
+    .panel { display: grid; gap: 14px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.15rem; }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+    .presets button {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .presets button:hover { border-color: var(--accent); color: var(--text); }
+
+    .group { display: grid; gap: 6px; }
+    .group > label, .group__label { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .group small { color: var(--muted); font-size: 0.8rem; }
+    .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+    .affix, .group select, .group input[type="month"] { min-height: 2.65rem; }   /* boxes side by side line up */
+    .affix {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .affix:focus-within { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .affix:has([aria-invalid="true"]) { border-color: var(--danger); }
+    .affix span { padding: 0 10px; color: var(--muted); }
+    .affix input { flex: 1; min-width: 0; padding: 8px 10px; border: 0; background: none; color: var(--text); font-size: 0.98rem; font-variant-numeric: tabular-nums; outline: none; }
+    .affix span + input { padding-left: 0; }
+    .group select, .group input[type="month"] {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .group select:focus, .group input[type="month"]:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .error { color: var(--danger); font-size: 0.92rem; }
+
+    .answer { padding: 16px; border-radius: 10px; background: var(--surface-2); }
+    .answer__label { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .answer__big { margin-top: 2px; font-family: var(--font-head); font-size: clamp(2rem, 7vw, 2.6rem); font-weight: 700; line-height: 1.1; }
+    .answer__sub { margin-top: 6px; color: var(--muted); }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .stats div { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+    .stats dt { color: var(--muted); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .stats dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .savings {
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border));
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--success) 8%, transparent);
+    }
+
+    .schedule { margin-top: 16px; }
+    .schedule__head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+    .schedule__head .panel__title { margin-right: auto; }
+    .table-wrap { max-height: 32rem; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    th, td { padding: 7px 12px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody th { font-weight: 500; }
+
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 420px) {
+      th, td { padding: 6px 8px; font-size: 0.84rem; }
+      thead th { font-size: 0.66rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Loan Calculator</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Loan Calculator</h1>
+      <p>Work out the monthly payment on a fixed-rate mortgage, car loan or student loan, see how much of it goes to interest, and find out how much sooner extra payments pay it off.</p>
+    </div>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="inputs-title">
+        <h2 class="panel__title" id="inputs-title">Loan details</h2>
+        <div class="presets" role="group" aria-label="Examples">
+          <button type="button" data-preset="300000 6.5 30">Mortgage</button>
+          <button type="button" data-preset="30000 7 5">Car loan</button>
+          <button type="button" data-preset="35000 5.5 10">Student loan</button>
+        </div>
+        <div class="group">
+          <label for="amount">Loan amount</label>
+          <div class="affix"><span aria-hidden="true">$</span><input id="amount" type="text" inputmode="decimal" autocomplete="off" aria-describedby="error" /></div>
+        </div>
+        <div class="group">
+          <label for="rate">Interest rate (APR)</label>
+          <div class="affix"><input id="rate" type="text" inputmode="decimal" autocomplete="off" aria-describedby="error" /><span aria-hidden="true">%</span></div>
+        </div>
+        <div class="pair">
+          <div class="group">
+            <label for="term">Term</label>
+            <div class="affix"><input id="term" type="text" inputmode="numeric" autocomplete="off" aria-describedby="error" /></div>
+          </div>
+          <div class="group">
+            <label for="term-unit">In</label>
+            <select id="term-unit">
+              <option value="years">Years</option>
+              <option value="months">Months</option>
+            </select>
+          </div>
+        </div>
+        <div class="group">
+          <label for="start">First payment</label>
+          <input id="start" type="month" />
+        </div>
+        <div class="group">
+          <label for="extra">Extra paid each month <small>(optional)</small></label>
+          <div class="affix"><span aria-hidden="true">$</span><input id="extra" type="text" inputmode="decimal" autocomplete="off" placeholder="0" aria-describedby="error" /></div>
+        </div>
+        <p class="error" id="error" role="alert" hidden></p>
+      </section>
+
+      <section class="panel" aria-labelledby="payment-label">
+        <div class="answer">
+          <div class="answer__label" id="payment-label">Monthly payment</div>
+          <div class="answer__big" id="payment">—</div>
+          <p class="answer__sub" id="summary" role="status"></p>
+        </div>
+        <dl class="stats">
+          <div><dt>Total interest</dt><dd id="total-interest">—</dd></div>
+          <div><dt>Total paid</dt><dd id="total-paid">—</dd></div>
+          <div><dt>Payments</dt><dd id="count">—</dd></div>
+          <div><dt>Paid off</dt><dd id="payoff">—</dd></div>
+        </dl>
+        <p class="savings" id="savings" hidden></p>
+      </section>
+    </div>
+
+    <section class="panel schedule" aria-labelledby="schedule-title">
+      <div class="schedule__head">
+        <h2 class="panel__title" id="schedule-title">Amortization schedule</h2>
+        <div class="segmented" role="group" aria-label="Schedule detail">
+          <button type="button" data-detail="year" aria-pressed="true">By year</button>
+          <button type="button" data-detail="month" aria-pressed="false">By month</button>
+        </div>
+        <button class="btn" id="csv" type="button">Download CSV</button>
+      </div>
+      <div class="table-wrap" tabindex="0" role="region" aria-labelledby="table-caption">
+        <table>
+          <caption class="sr-only" id="table-caption">Amortization schedule</caption>
+          <thead id="head"></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Uses the standard fixed-rate formula with the APR divided by 12 for the monthly rate. Every month's interest is rounded to the cent and the last payment absorbs any rounding, as lenders do, so the schedule adds up exactly. Extra payments go straight to principal. Estimates only: taxes, insurance, PMI and fees aren't included. Your numbers are remembered in this browser and never sent anywhere. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/loan-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+    const percent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 0 });
+    const number = new Intl.NumberFormat('en-US');
+    const monthName = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const fromCents = (cents) => money.format(cents / 100);
+    const plural = (n, word) => `${number.format(n)} ${word}${n === 1 ? '' : 's'}`;
+    const duration = (months) => {
+      const parts = [];
+      if (Math.floor(months / 12)) parts.push(plural(Math.floor(months / 12), 'year'));
+      if (months % 12) parts.push(plural(months % 12, 'month'));
+      return parts.join(', ') || '0 months';
+    };
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem('loan-calculator')) || null; } catch { return null; } },
+      set(value) { try { localStorage.setItem('loan-calculator', JSON.stringify(value)); } catch {} },
+    };
+
+    // "$300,000" and "300000.50" both work
+    const parseNumber = (text) => {
+      const cleaned = text.replace(/[$,%\s]/g, '');
+      return /^\d*\.?\d+$/.test(cleaned) || /^\d+\.$/.test(cleaned) ? Number(cleaned) : NaN;
+    };
+
+    // Payment k (1-based) falls k - 1 months after the first payment
+    const monthAfter = (start, k) => new Date(Date.UTC(start.year, start.month - 1 + k - 1, 1));
+
+    // A fixed-rate schedule in whole cents. The last payment absorbs rounding.
+    function amortize(principalCents, monthlyRate, months, extraCents) {
+      const payment = monthlyRate === 0
+        ? Math.round(principalCents / months)
+        : Math.round((principalCents * monthlyRate) / (1 - (1 + monthlyRate) ** -months));
+      const rows = [];
+      let balance = principalCents;
+      for (let k = 1; balance > 0 && k <= months; k += 1) {
+        const interest = Math.round(balance * monthlyRate);
+        let principal = Math.max(0, payment - interest) + extraCents;
+        if (k === months || principal >= balance) principal = balance;
+        balance -= principal;
+        rows.push({ k, interest, principal, paid: principal + interest, balance });
+      }
+      const totalInterest = rows.reduce((sum, row) => sum + row.interest, 0);
+      return { payment, rows, totalInterest, totalPaid: principalCents + totalInterest };
+    }
+
+    let current = null;    // { rows, start } for the table and CSV
+    let detail = 'year';
+
+    function read() {
+      const errors = [];
+      const field = (id, test, message) => {
+        const value = parseNumber($(id).value);
+        const bad = !test(value);
+        $(id).setAttribute('aria-invalid', String(bad));
+        if (bad) errors.push(message);
+        return value;
+      };
+      const amount = field('amount', (v) => v >= 1 && v <= 100000000, 'Enter a loan amount between $1 and $100,000,000.');
+      const rate = field('rate', (v) => v >= 0 && v <= 40, 'Enter an interest rate between 0% and 40%.');
+      const unit = $('term-unit').value;
+      const term = field('term', (v) => Number.isInteger(v) && v >= 1 && v <= (unit === 'years' ? 50 : 600), `Enter a term of 1 to ${unit === 'years' ? '50 years' : '600 months'}, in whole ${unit}.`);
+      const extraText = $('extra').value.trim();
+      const extra = extraText === '' ? 0 : field('extra', (v) => v >= 0 && v <= 10000000, 'Enter an extra payment of $0 or more, or leave it empty.');
+      if (extraText === '') $('extra').setAttribute('aria-invalid', 'false');
+      const match = /^(\d{4})-(\d{2})$/.exec($('start').value);
+      const start = match ? { year: Number(match[1]), month: Number(match[2]) } : nextMonth();
+      return { errors, amount, rate, term, unit, extra, start };
+    }
+
+    function nextMonth() {
+      const now = new Date();
+      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1));
+      return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
+    }
+
+    function update() {
+      const input = read();
+      store.set({
+        amount: $('amount').value, rate: $('rate').value, term: $('term').value,
+        unit: $('term-unit').value, start: $('start').value, extra: $('extra').value,
+      });
+      const outputs = ['payment', 'total-interest', 'total-paid', 'count', 'payoff'];
+      if (input.errors.length) {
+        $('error').textContent = input.errors[0];
+        $('error').hidden = false;
+        outputs.forEach((id) => { $(id).textContent = '—'; });
+        $('summary').textContent = '';
+        $('savings').hidden = true;
+        $('rows').textContent = '';
+        $('csv').disabled = true;
+        current = null;
+        return;
+      }
+      $('error').hidden = true;
+      $('csv').disabled = false;
+
+      const principal = Math.round(input.amount * 100);
+      const monthlyRate = input.rate / 100 / 12;
+      const months = input.unit === 'years' ? input.term * 12 : input.term;
+      const extra = Math.round(input.extra * 100);
+      const plan = amortize(principal, monthlyRate, months, extra);
+      const base = extra ? amortize(principal, monthlyRate, months, 0) : plan;
+      const last = plan.rows[plan.rows.length - 1];
+
+      $('payment').textContent = fromCents(plan.payment);
+      $('total-interest').textContent = fromCents(plan.totalInterest);
+      $('total-paid').textContent = fromCents(plan.totalPaid);
+      $('count').textContent = number.format(plan.rows.length);
+      $('payoff').textContent = monthName.format(monthAfter(input.start, plan.rows.length));
+      const lastNote = last.paid !== plan.payment + extra && plan.rows.length > 1 ? ` The last payment is ${fromCents(last.paid)}.` : '';
+      const share = plan.totalPaid ? plan.totalInterest / plan.totalPaid : 0;
+      $('summary').textContent = extra
+        ? `Plus ${fromCents(extra)} extra makes ${fromCents(plan.payment + extra)} a month. Interest is ${percent.format(share)} of everything you pay.${lastNote}`
+        : `Over ${duration(plan.rows.length)}, interest is ${percent.format(share)} of everything you pay.${lastNote}`;
+
+      if (extra) {
+        const sooner = base.rows.length - plan.rows.length;
+        const saved = base.totalInterest - plan.totalInterest;
+        $('savings').textContent = sooner
+          ? `Paying ${fromCents(extra)} extra each month pays the loan off ${duration(sooner)} sooner and saves ${fromCents(saved)} in interest.`
+          : `Paying ${fromCents(extra)} extra each month saves ${fromCents(saved)} in interest.`;
+        $('savings').hidden = false;
+      } else {
+        $('savings').hidden = true;
+      }
+      current = { rows: plan.rows, start: input.start };
+      renderTable();
+    }
+
+    function renderTable() {
+      const head = $('head');
+      const body = $('rows');
+      head.textContent = '';
+      body.textContent = '';
+      if (!current) return;
+      const headRow = document.createElement('tr');
+      const cols = detail === 'year'
+        ? ['Year', 'Principal', 'Interest', 'Total paid', 'Balance']
+        : ['Payment', 'Month', 'Amount', 'Principal', 'Interest', 'Balance'];
+      cols.forEach((name) => {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = name;
+        headRow.append(th);
+      });
+      head.append(headRow);
+      $('table-caption').textContent = detail === 'year' ? 'Amortization schedule by calendar year' : 'Amortization schedule by payment';
+
+      const addRow = (cells) => {
+        const tr = document.createElement('tr');
+        cells.forEach((value, i) => {
+          const cell = document.createElement(i === 0 ? 'th' : 'td');
+          if (i === 0) cell.scope = 'row';
+          cell.textContent = value;
+          tr.append(cell);
+        });
+        body.append(tr);
+      };
+      if (detail === 'year') {
+        const years = new Map();
+        current.rows.forEach((row) => {
+          const year = monthAfter(current.start, row.k).getUTCFullYear();
+          const entry = years.get(year) || { principal: 0, interest: 0, balance: 0 };
+          entry.principal += row.principal;
+          entry.interest += row.interest;
+          entry.balance = row.balance;
+          years.set(year, entry);
+        });
+        years.forEach((y, year) => addRow([String(year), fromCents(y.principal), fromCents(y.interest), fromCents(y.principal + y.interest), fromCents(y.balance)]));
+      } else {
+        current.rows.forEach((row) => addRow([String(row.k), monthName.format(monthAfter(current.start, row.k)), fromCents(row.paid), fromCents(row.principal), fromCents(row.interest), fromCents(row.balance)]));
+      }
+    }
+
+    function downloadCsv() {
+      if (!current) return;
+      const cents = (n) => (n / 100).toFixed(2);
+      const lines = ['Payment,Month,Amount,Principal,Interest,Balance'];
+      current.rows.forEach((row) => {
+        const d = monthAfter(current.start, row.k);
+        const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        lines.push([row.k, month, cents(row.paid), cents(row.principal), cents(row.interest), cents(row.balance)].join(','));
+      });
+      const url = URL.createObjectURL(new Blob([`${lines.join('\n')}\n`], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'amortization-schedule.csv';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    ['amount', 'rate', 'term', 'extra', 'start'].forEach((id) => $(id).addEventListener('input', update));
+    $('term-unit').addEventListener('change', update);
+    document.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', () => {
+      const [amount, rate, years] = button.dataset.preset.split(' ');
+      $('amount').value = number.format(Number(amount));
+      $('rate').value = rate;
+      $('term').value = years;
+      $('term-unit').value = 'years';
+      $('extra').value = '';
+      update();
+    }));
+    document.querySelectorAll('[data-detail]').forEach((button) => button.addEventListener('click', () => {
+      detail = button.dataset.detail;
+      document.querySelectorAll('[data-detail]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+      renderTable();
+    }));
+    $('csv').addEventListener('click', downloadCsv);
+
+    // Start with the last numbers used here, or a typical mortgage
+    const saved = store.get();
+    const next = nextMonth();
+    $('amount').value = saved ? saved.amount : '300,000';
+    $('rate').value = saved ? saved.rate : '6.5';
+    $('term').value = saved ? saved.term : '30';
+    $('term-unit').value = saved && saved.unit === 'months' ? 'months' : 'years';
+    $('start').value = saved && saved.start ? saved.start : `${next.year}-${String(next.month).padStart(2, '0')}`;
+    $('extra').value = saved ? saved.extra : '';
+    update();
+  })();
+  </script>
+</body>
+</html>
