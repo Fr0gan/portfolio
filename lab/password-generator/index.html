@@ -72,7 +72,7 @@
   <main class="page">
     <div class="page-head">
       <h1>Password Generator</h1>
-      <p>Create a strong random password, or a passphrase made of words that's easier to type and remember. Everything happens on your device. Nothing is sent anywhere or saved.</p>
+      <p>Create a strong random password, or a passphrase made of words that's easier to type and remember. Everything happens on your device and nothing is sent anywhere. Your settings are remembered in this browser, but the passwords themselves are never saved.</p>
     </div>
 
     <div class="layout">
@@ -243,6 +243,7 @@
     }
 
     function generate() {
+      saveSettings();
       const { value, bits } = kind === 'password' ? generatePassword() : generatePassphrase();
       $('result').textContent = value;
       const [level, label] = strength(bits);
@@ -270,15 +271,57 @@
     });
     $('regenerate').addEventListener('click', generate);
 
+    function setKind(next) {
+      kind = next;
+      kindButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === kind)));
+      $('password-options').hidden = kind !== 'password';
+      $('passphrase-options').hidden = kind !== 'passphrase';
+    }
     kindButtons.forEach((button) => {
       button.addEventListener('click', () => {
-        kind = button.dataset.kind;
-        kindButtons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-        $('password-options').hidden = kind !== 'password';
-        $('passphrase-options').hidden = kind !== 'passphrase';
+        setKind(button.dataset.kind);
         generate();
       });
     });
+
+    // Settings are remembered for the next visit. Generated passwords never are.
+    const SETTINGS_KEY = 'password-generator';
+    function saveSettings() {
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+          kind,
+          length: Number($('length').value),
+          words: Number($('words').value),
+          sets: Object.fromEntries(Object.entries(setInputs).map(([name, input]) => [name, input.checked])),
+          noAmbiguous: $('no-ambiguous').checked,
+          separator: $('separator').value,
+          capitalize: $('capitalize').checked,
+          addNumber: $('add-number').checked,
+        }));
+      } catch { /* storage unavailable */ }
+    }
+    function restoreSettings() {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch { /* storage unavailable or corrupt */ }
+      if (!saved || typeof saved !== 'object') return;
+      // Only accept values the controls allow
+      const setRange = (input, value) => {
+        if (Number.isInteger(value) && value >= Number(input.min) && value <= Number(input.max)) input.value = String(value);
+      };
+      setRange($('length'), saved.length);
+      setRange($('words'), saved.words);
+      $('length-value').textContent = $('length').value;
+      $('words-value').textContent = $('words').value;
+      const sets = saved.sets || {};
+      if (Object.keys(setInputs).some((name) => sets[name] === true)) {
+        Object.entries(setInputs).forEach(([name, input]) => { input.checked = sets[name] === true; });
+      }
+      [['noAmbiguous', 'no-ambiguous'], ['capitalize', 'capitalize'], ['addNumber', 'add-number']].forEach(([key, id]) => {
+        if (typeof saved[key] === 'boolean') $(id).checked = saved[key];
+      });
+      if ([...$('separator').options].some((option) => option.value === saved.separator)) $('separator').value = saved.separator;
+      if (saved.kind === 'password' || saved.kind === 'passphrase') setKind(saved.kind);
+    }
 
     $('length').addEventListener('input', () => { $('length-value').textContent = $('length').value; generate(); });
     $('words').addEventListener('input', () => { $('words-value').textContent = $('words').value; generate(); });
@@ -296,6 +339,7 @@
     });
     ['no-ambiguous', 'separator', 'capitalize', 'add-number'].forEach((id) => $(id).addEventListener('change', generate));
 
+    restoreSettings();
     generate();
   })();
   </script>
