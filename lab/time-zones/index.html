@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Time Zone Planner | Logan Loftus</title>
+  <meta name="description" content="Convert a time between cities and find the hours when everyone is at work, with daylight saving time handled correctly." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .stack { display: grid; gap: 16px; }
+    .panel { display: grid; gap: 12px; }
+    .panel__title { font-family: var(--font-head); font-size: 1.15rem; }
+
+    .controls__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px; }
+    .group { display: grid; gap: 6px; min-width: 0; }
+    .group label { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .group input, .group select, .add input {
+      min-width: 0;
+      min-height: 2.65rem;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .group select { max-width: 16rem; }
+    .group input:focus, .group select:focus, .add input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .controls__row .btn, .controls__row .segmented { min-height: 2.65rem; }
+    .note { min-height: 1.4em; color: var(--muted); font-size: 0.9rem; }
+    .note:empty { min-height: 0; }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; list-style: none; }
+    .card {
+      display: grid;
+      gap: 2px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .card.is-base { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .card__city { min-width: 0; overflow-wrap: anywhere; font-family: var(--font-head); font-size: 1.05rem; }
+    .card__remove {
+      flex: none;
+      width: 28px;
+      height: 28px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .card__remove:hover { border-color: var(--border-strong); color: var(--danger); }
+    .card__zone { color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+    .card__time { margin-top: 6px; font-family: var(--font-head); font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
+    .card__date { color: var(--text); font-size: 0.92rem; }
+    .card__diff { color: var(--muted); font-size: 0.85rem; }
+    .badge { margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; }
+
+    .add { display: flex; flex-wrap: wrap; gap: 8px; }
+    .add input { flex: 1 1 240px; }
+    .add__error { flex-basis: 100%; color: var(--danger); font-size: 0.9rem; }
+
+    .overlap { font-weight: 500; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 0.85rem; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .grid { border-collapse: separate; border-spacing: 0; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+    .grid th, .grid td { min-width: 2.6rem; height: 2.2rem; padding: 0 2px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+    .grid thead th { height: 1.9rem; background: var(--surface-2); color: var(--muted); font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; }
+    .grid tbody tr:last-child > * { border-bottom: 0; }
+    .grid th[scope="row"], .grid thead th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      min-width: 7.5rem;
+      max-width: 7.5rem;
+      padding: 0 10px;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      font-weight: 500;
+      text-align: left;
+      text-overflow: ellipsis;
+    }
+    .grid thead th:first-child { background: var(--surface-2); }
+    .grid td { cursor: pointer; }
+    .work, .legend .work { background: color-mix(in srgb, var(--success) 22%, transparent); }
+    .edge, .legend .edge { background: color-mix(in srgb, var(--warning) 16%, transparent); }
+    .off, .legend .off { background: var(--surface-2); color: var(--muted); }
+    .grid .day { font-weight: 600; }
+    .grid .is-selected { box-shadow: inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+    .grid thead .is-selected { background: var(--accent); color: var(--accent-contrast); box-shadow: none; }
+    .hint { color: var(--muted); font-size: 0.85rem; }
+
+    @media (max-width: 520px) {
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .card { padding: 12px; }
+      .card__time { font-size: 1.45rem; }
+      .controls__row > .group { flex: 1 1 40%; }
+      .group select { max-width: none; width: 100%; }
+      .grid th[scope="row"], .grid thead th:first-child { min-width: 5.6rem; max-width: 5.6rem; padding: 0 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Time Zone Planner</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Time Zone Planner</h1>
+      <p>Pick a date and time in one city to see it everywhere else, then use the hour grid to find a meeting time inside everyone's working day. Daylight saving changes are handled, including the times that are skipped or happen twice.</p>
+    </div>
+
+    <div class="stack">
+      <section class="panel" aria-label="Date and time">
+        <div class="controls__row">
+          <div class="group"><label for="date">Date</label><input id="date" type="date" /></div>
+          <div class="group"><label for="time">Time</label><input id="time" type="time" /></div>
+          <div class="group"><label for="base">In</label><select id="base"></select></div>
+          <button class="btn" id="now" type="button">Now</button>
+          <div class="segmented" role="group" aria-label="Clock format">
+            <button type="button" data-clock="12" aria-pressed="true">12-hour</button>
+            <button type="button" data-clock="24" aria-pressed="false">24-hour</button>
+          </div>
+        </div>
+        <p class="note" id="dst-note" role="status"></p>
+      </section>
+
+      <section class="stack" aria-labelledby="cities-title">
+        <h2 class="sr-only" id="cities-title">Cities</h2>
+        <ul class="cards" id="cards"></ul>
+        <form class="add" id="add-form" novalidate>
+          <label class="sr-only" for="zone-input">Add a city or time zone</label>
+          <input id="zone-input" list="zone-list" autocomplete="off" placeholder="Add a city or time zone, e.g. Paris" aria-describedby="add-error" />
+          <button class="btn btn--primary" type="submit">Add</button>
+          <p class="add__error" id="add-error" role="alert" hidden></p>
+        </form>
+        <datalist id="zone-list"></datalist>
+      </section>
+
+      <section class="panel" aria-labelledby="planner-title">
+        <h2 class="panel__title" id="planner-title">Plan a meeting</h2>
+        <p class="overlap" id="overlap" role="status"></p>
+        <p class="legend" aria-hidden="true">
+          <span><i class="work"></i> Working hours, 9 to 5 on weekdays</span>
+          <span><i class="edge"></i> Early or late</span>
+          <span><i class="off"></i> Night or weekend</span>
+        </p>
+        <div class="table-wrap" id="grid-wrap" tabindex="0" role="region" aria-label="Hours in each city, scrolls sideways">
+          <table class="grid" id="grid">
+            <caption class="sr-only" id="grid-caption"></caption>
+            <thead id="grid-head"></thead>
+            <tbody id="grid-body"></tbody>
+          </table>
+        </div>
+        <p class="hint">Each column is one hour. Click an hour to pick it.</p>
+      </section>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript with the browser's own time zone database through the Intl API, so offsets and daylight saving rules are as current as your browser. Working hours are 9 AM to 5 PM, Monday to Friday, in each city. Your cities and clock format are remembered in this browser. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/time-zones" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const HOUR = 3600000;
+    const MAX_CITIES = 10;
+    const $ = (id) => document.getElementById(id);
+
+    const isZone = (zone) => { try { new Intl.DateTimeFormat('en-US', { timeZone: zone }); return true; } catch { return false; } };
+    const LOCAL = (() => { const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return z && isZone(z) ? z : 'UTC'; })();
+    const ZONES = (() => {
+      let list = [];
+      try { list = Intl.supportedValuesOf('timeZone'); } catch { list = ['America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Africa/Lagos', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Shanghai', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland']; }
+      return list.includes('UTC') ? list : list.concat('UTC');
+    })();
+    // Common places that aren't the city an IANA zone is named after
+    const ALIASES = {
+      'san francisco': ['America/Los_Angeles', 'San Francisco'], seattle: ['America/Los_Angeles', 'Seattle'],
+      boston: ['America/New_York', 'Boston'], washington: ['America/New_York', 'Washington'], atlanta: ['America/New_York', 'Atlanta'], miami: ['America/New_York', 'Miami'],
+      dallas: ['America/Chicago', 'Dallas'], houston: ['America/Chicago', 'Houston'], austin: ['America/Chicago', 'Austin'],
+      beijing: ['Asia/Shanghai', 'Beijing'], delhi: ['Asia/Kolkata', 'Delhi'], 'new delhi': ['Asia/Kolkata', 'New Delhi'], mumbai: ['Asia/Kolkata', 'Mumbai'], bangalore: ['Asia/Kolkata', 'Bangalore'],
+      'tel aviv': ['Asia/Jerusalem', 'Tel Aviv'], munich: ['Europe/Berlin', 'Munich'], barcelona: ['Europe/Madrid', 'Barcelona'], milan: ['Europe/Rome', 'Milan'],
+    };
+    const DEFAULT_OTHERS = ['America/New_York', 'Europe/London', 'Asia/Tokyo'];
+
+    const cityOf = (zone) => (zone === 'UTC' ? 'UTC' : zone.split('/').pop().replace(/_/g, ' '));
+    const regionOf = (zone) => (zone === 'UTC' ? 'Coordinated Universal Time' : zone.split('/').slice(0, -1).join(' / ').replace(/_/g, ' '));
+
+    // ---------- Time zone math ----------
+    const partsFormats = new Map();
+    function partsOf(zone, ms) {
+      if (!partsFormats.has(zone)) {
+        partsFormats.set(zone, new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', weekday: 'short' }));
+      }
+      const out = {};
+      partsFormats.get(zone).formatToParts(new Date(ms)).forEach((p) => { out[p.type] = p.value; });
+      return { year: Number(out.year), month: Number(out.month), day: Number(out.day), hour: Number(out.hour) % 24, minute: Number(out.minute), second: Number(out.second), weekday: out.weekday };
+    }
+    // Minutes ahead of UTC at a moment
+    function offsetAt(zone, ms) {
+      const p = partsOf(zone, ms);
+      const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+      return Math.round((asUtc - Math.floor(ms / 1000) * 1000) / 60000);
+    }
+    // The moment a wall-clock time happens in a zone. Times skipped by a daylight
+    // saving change move forward by the size of the jump; repeated times use the first.
+    function wallToUtc(zone, y, mo, d, h, mi) {
+      const wall = Date.UTC(y, mo - 1, d, h, mi);
+      const before = offsetAt(zone, wall - 14 * HOUR);
+      const after = offsetAt(zone, wall + 14 * HOUR);
+      const valid = [...new Set([before, after])]
+        .map((o) => wall - o * 60000)
+        .filter((ms) => { const p = partsOf(zone, ms); return p.hour === h && p.minute === mi && p.day === d; })
+        .sort((a, b) => a - b);
+      if (valid.length) return { ms: valid[0], status: valid.length > 1 ? 'repeated' : 'ok' };
+      return { ms: wall - before * 60000, status: 'skipped' };
+    }
+
+    const formatOffset = (minutes) => {
+      if (!minutes) return 'UTC';
+      const sign = minutes > 0 ? '+' : '−';
+      const abs = Math.abs(minutes);
+      return `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, '0')}` : ''}`;
+    };
+    const shortName = (zone, ms) => {
+      const part = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' }).formatToParts(new Date(ms)).find((p) => p.type === 'timeZoneName');
+      return part && /^[A-Z]{2,5}$/.test(part.value) ? part.value : '';
+    };
+    const differenceText = (minutes) => {
+      if (!minutes) return 'Same time';
+      const abs = Math.abs(minutes);
+      const h = Math.floor(abs / 60);
+      const m = abs % 60;
+      const amount = m ? `${h}:${String(m).padStart(2, '0')} hrs` : `${h} ${h === 1 ? 'hr' : 'hrs'}`;
+      return `${amount} ${minutes > 0 ? 'ahead' : 'behind'}`;
+    };
+
+    // ---------- State ----------
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem('time-zone-planner')) || null; } catch { return null; } },
+      set(value) { try { localStorage.setItem('time-zone-planner', JSON.stringify(value)); } catch { /* storage unavailable */ } },
+    };
+    let cities = [];      // { zone, label }
+    let base = LOCAL;
+    let hour12 = true;
+    const save = () => store.set({ cities, base, hour12 });
+
+    function loadState() {
+      const saved = store.get();
+      if (saved && Array.isArray(saved.cities)) {
+        cities = saved.cities
+          .filter((c) => c && typeof c.zone === 'string' && isZone(c.zone))
+          .map((c) => ({ zone: c.zone, label: typeof c.label === 'string' && c.label.trim() ? c.label.slice(0, 40) : cityOf(c.zone) }))
+          .slice(0, MAX_CITIES);
+        hour12 = saved.hour12 !== false;
+        base = cities.some((c) => c.zone === saved.base) ? saved.base : null;
+      }
+      if (!cities.length) {
+        cities = [LOCAL, ...DEFAULT_OTHERS.filter((z) => z !== LOCAL)].map((zone) => ({ zone, label: cityOf(zone) }));
+      }
+      if (!base) base = cities[0].zone;
+    }
+
+    function resolveZone(text) {
+      const raw = text.trim();
+      const q = raw.toLowerCase().replace(/[\s_]+/g, ' ');
+      if (!q) return null;
+      if (ALIASES[q]) return { zone: ALIASES[q][0], label: ALIASES[q][1] };
+      const exact = ZONES.find((z) => z.toLowerCase().replace(/_/g, ' ') === q);
+      if (exact) return { zone: exact, label: cityOf(exact) };
+      const city = ZONES.find((z) => cityOf(z).toLowerCase() === q);
+      if (city) return { zone: city, label: cityOf(city) };
+      if (isZone(raw)) {
+        const zone = new Intl.DateTimeFormat('en-US', { timeZone: raw }).resolvedOptions().timeZone;
+        return { zone, label: cityOf(zone) };
+      }
+      return null;
+    }
+
+    // ---------- Rendering ----------
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeFormat = (zone) => new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', minute: '2-digit', hour12 });
+    const dateFormat = (zone) => new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'short', month: 'short', day: 'numeric' });
+    const dayNumber = (p) => Date.UTC(p.year, p.month - 1, p.day) / 86400000;
+
+    function selection() {
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('date').value);
+      const t = /^(\d{2}):(\d{2})/.exec($('time').value);
+      if (!d || !t) return null;
+      const [y, mo, day, h, mi] = [d[1], d[2], d[3], t[1], t[2]].map(Number);
+      return { y, mo, day, h, mi, ...wallToUtc(base, y, mo, day, h, mi) };
+    }
+
+    function hourLabel(p) {
+      if (hour12) {
+        const h = p.hour % 12 || 12;
+        return `${h}${p.minute ? `:${pad(p.minute)}` : ''}${p.hour < 12 ? 'a' : 'p'}`;
+      }
+      return `${pad(p.hour)}${p.minute ? `:${pad(p.minute)}` : ''}`;
+    }
+    // work: 9–5 on a weekday; edge: 7–9 or 5–10 on a weekday; off: night or weekend
+    function kindOf(p) {
+      if (p.weekday === 'Sat' || p.weekday === 'Sun') return 'off';
+      const t = p.hour + p.minute / 60;
+      if (t >= 9 && t < 17) return 'work';
+      if ((t >= 7 && t < 9) || (t >= 17 && t < 22)) return 'edge';
+      return 'off';
+    }
+
+    function render() {
+      const sel = selection();
+      const baseSelect = $('base');
+      baseSelect.innerHTML = '';
+      cities.forEach((c) => baseSelect.append(new Option(c.label === cityOf(c.zone) ? c.label : `${c.label} (${cityOf(c.zone)})`, c.zone, false, c.zone === base)));
+      baseSelect.value = base;
+      document.querySelectorAll('[data-clock]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.clock === '12') === hour12)));
+      $('zone-input').disabled = cities.length >= MAX_CITIES;
+      $('zone-input').placeholder = cities.length >= MAX_CITIES ? `Up to ${MAX_CITIES} cities` : 'Add a city or time zone, e.g. Paris';
+
+      const note = $('dst-note');
+      const baseCity = cities.find((c) => c.zone === base).label;
+      if (!sel) {
+        note.textContent = 'Pick a date and a time.';
+        $('cards').textContent = '';
+        $('grid-head').textContent = '';
+        $('grid-body').textContent = '';
+        $('overlap').textContent = '';
+        return;
+      }
+      const wanted = `${sel.h % 12 || 12}:${pad(sel.mi)} ${sel.h < 12 ? 'AM' : 'PM'}`;
+      const onDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(sel.y, sel.mo - 1, sel.day)));
+      if (sel.status === 'skipped') note.textContent = `${wanted} doesn't exist on ${onDay} in ${baseCity}, because the clocks spring forward. The time just after the change is shown.`;
+      else if (sel.status === 'repeated') note.textContent = `${wanted} happens twice on ${onDay} in ${baseCity}, because the clocks fall back. The first one is shown.`;
+      else note.textContent = '';
+
+      // Cards
+      const baseOffset = offsetAt(base, sel.ms);
+      const baseDay = dayNumber(partsOf(base, sel.ms));
+      const cards = $('cards');
+      cards.textContent = '';
+      cities.forEach((c) => {
+        const offset = offsetAt(c.zone, sel.ms);
+        const p = partsOf(c.zone, sel.ms);
+        const li = document.createElement('li');
+        li.className = `card${c.zone === base ? ' is-base' : ''}`;
+        const head = document.createElement('div');
+        head.className = 'card__head';
+        const h3 = document.createElement('h3');
+        h3.className = 'card__city';
+        h3.textContent = c.label;
+        head.append(h3);
+        if (cities.length > 1) {
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'card__remove';
+          remove.textContent = '×';
+          remove.setAttribute('aria-label', `Remove ${c.label}`);
+          remove.addEventListener('click', () => removeCity(c.zone));
+          head.append(remove);
+        }
+        const zoneLine = document.createElement('p');
+        zoneLine.className = 'card__zone';
+        const abbr = shortName(c.zone, sel.ms);
+        zoneLine.textContent = [c.label !== cityOf(c.zone) ? cityOf(c.zone) : regionOf(c.zone), formatOffset(offset), abbr].filter(Boolean).join(' · ');
+        const time = document.createElement('p');
+        time.className = 'card__time';
+        time.textContent = timeFormat(c.zone).format(new Date(sel.ms));
+        const date = document.createElement('p');
+        date.className = 'card__date';
+        date.textContent = dateFormat(c.zone).format(new Date(sel.ms));
+        const shift = dayNumber(p) - baseDay;
+        if (shift) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = `${shift > 0 ? '+' : '−'}${Math.abs(shift)} day`;
+          date.append(badge);
+        }
+        const diff = document.createElement('p');
+        diff.className = 'card__diff';
+        diff.textContent = c.zone === base ? 'Times are entered here' : differenceText(offset - baseOffset);
+        li.append(head, zoneLine, time, date, diff);
+        cards.append(li);
+      });
+
+      // Hour grid for the chosen day, starting at midnight in the main city
+      // The day can have 23 or 25 hours when the clocks change
+      const dayStart = wallToUtc(base, sel.y, sel.mo, sel.day, 0, 0).ms;
+      const next = new Date(Date.UTC(sel.y, sel.mo - 1, sel.day + 1));
+      const dayEnd = wallToUtc(base, next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 0, 0).ms;
+      const columns = Array.from({ length: Math.round((dayEnd - dayStart) / HOUR) }, (_, k) => dayStart + k * HOUR);
+      const selectedColumn = Math.floor((sel.ms - dayStart) / HOUR);
+      const head = $('grid-head');
+      const body = $('grid-body');
+      head.textContent = '';
+      body.textContent = '';
+      const headRow = document.createElement('tr');
+      const corner = document.createElement('th');
+      corner.scope = 'col';
+      corner.textContent = baseCity;
+      headRow.append(corner);
+      columns.forEach((ms, k) => {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = hourLabel(partsOf(base, ms));
+        th.dataset.k = String(k);
+        if (k === selectedColumn) th.classList.add('is-selected');
+        headRow.append(th);
+      });
+      head.append(headRow);
+      const kinds = columns.map(() => []);
+      cities.forEach((c) => {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.scope = 'row';
+        th.textContent = c.label;
+        th.title = c.label;
+        tr.append(th);
+        columns.forEach((ms, k) => {
+          const p = partsOf(c.zone, ms);
+          const td = document.createElement('td');
+          const kind = kindOf(p);
+          kinds[k].push(kind);
+          td.className = kind;
+          td.dataset.k = String(k);
+          // Midnight shows the new day instead of the hour
+          if (p.hour === 0 && p.minute === 0) { td.textContent = p.weekday; td.classList.add('day'); } else td.textContent = hourLabel(p);
+          if (k === selectedColumn) td.classList.add('is-selected');
+          tr.append(td);
+        });
+        body.append(tr);
+      });
+      $('grid-caption').textContent = `Local time in each city for every hour of ${onDay} in ${baseCity}`;
+
+      // Hours when everyone is at work
+      const runs = [];
+      kinds.forEach((list, k) => {
+        if (list.every((kind) => kind === 'work')) {
+          const last = runs[runs.length - 1];
+          if (last && last[1] === k) last[1] = k + 1; else runs.push([k, k + 1]);
+        }
+      });
+      const fmt = timeFormat(base);
+      $('overlap').textContent = runs.length
+        ? `Everyone is in working hours ${runs.map(([a, b]) => `${fmt.format(new Date(columns[a]))} – ${fmt.format(new Date(dayStart + b * HOUR))}`).join(' and ')} ${baseCity} time.`
+        : `No hour on ${onDay} falls inside 9 to 5 on a weekday for everyone. The amber hours are the next best.`;
+
+      // Keep the chosen hour in view when the grid scrolls sideways
+      const wrap = $('grid-wrap');
+      const cell = head.querySelector('.is-selected');
+      if (cell && wrap.scrollWidth > wrap.clientWidth) {
+        const sticky = corner.offsetWidth;
+        const left = cell.offsetLeft - sticky - (wrap.clientWidth - sticky - cell.offsetWidth) / 2;
+        wrap.scrollLeft = Math.max(0, left);
+      }
+    }
+
+    function setNow() {
+      const p = partsOf(base, Date.now());
+      $('date').value = `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+      $('time').value = `${pad(p.hour)}:${pad(p.minute)}`;
+    }
+
+    function removeCity(zone) {
+      if (cities.length <= 1) return;
+      const sel = selection();
+      cities = cities.filter((c) => c.zone !== zone);
+      if (base === zone) {
+        base = cities[0].zone;
+        // Keep the same moment, shown in the new main city
+        if (sel) {
+          const p = partsOf(base, sel.ms);
+          $('date').value = `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+          $('time').value = `${pad(p.hour)}:${pad(p.minute)}`;
+        }
+      }
+      save();
+      render();
+      $('zone-input').focus();
+    }
+
+    // ---------- Events ----------
+    ['date', 'time'].forEach((id) => $(id).addEventListener('input', render));
+    $('base').addEventListener('change', () => {
+      // Changing the main city keeps the same moment
+      const sel = selection();
+      base = $('base').value;
+      if (sel) {
+        const p = partsOf(base, sel.ms);
+        $('date').value = `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+        $('time').value = `${pad(p.hour)}:${pad(p.minute)}`;
+      }
+      save();
+      render();
+    });
+    $('now').addEventListener('click', () => { setNow(); render(); });
+    document.querySelectorAll('[data-clock]').forEach((button) => button.addEventListener('click', () => {
+      hour12 = button.dataset.clock === '12';
+      save();
+      render();
+    }));
+    $('grid').addEventListener('click', (e) => {
+      const cell = e.target.closest('[data-k]');
+      if (!cell) return;
+      const sel = selection();
+      if (!sel) return;
+      const dayStart = wallToUtc(base, sel.y, sel.mo, sel.day, 0, 0).ms;
+      const p = partsOf(base, dayStart + Number(cell.dataset.k) * HOUR);
+      $('time').value = `${pad(p.hour)}:${pad(sel.mi)}`;
+      render();
+    });
+    $('add-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const error = $('add-error');
+      const input = $('zone-input');
+      const found = resolveZone(input.value);
+      error.hidden = true;
+      input.removeAttribute('aria-invalid');
+      if (!found) {
+        error.textContent = input.value.trim() ? `Couldn't find "${input.value.trim()}". Try a city like Paris or a time zone like Europe/Paris.` : 'Type a city or time zone first.';
+        error.hidden = false;
+        input.setAttribute('aria-invalid', 'true');
+        return;
+      }
+      if (cities.some((c) => c.zone === found.zone && c.label === found.label)) {
+        error.textContent = `${found.label} is already on the list.`;
+        error.hidden = false;
+        return;
+      }
+      cities.push(found);
+      input.value = '';
+      save();
+      render();
+    });
+
+    // ---------- Start ----------
+    $('zone-list').innerHTML = ZONES.map((z) => `<option value="${z}">${cityOf(z)}</option>`).join('');
+    loadState();
+    setNow();
+    render();
+  })();
+  </script>
+</body>
+</html>
