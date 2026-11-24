@@ -36,6 +36,19 @@
     .controls__row .btn, .controls__row .segmented { min-height: 2.65rem; }
     .note { min-height: 1.4em; color: var(--muted); font-size: 0.9rem; }
     .note:empty { min-height: 0; }
+    .share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+    .shared-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 16px;
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    }
+    .shared-banner p { flex: 1 1 260px; }
 
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; list-style: none; }
     .card {
@@ -128,6 +141,10 @@
     </div>
 
     <div class="stack">
+      <div class="shared-banner" id="shared-banner" hidden>
+        <p>You're viewing a shared time, shown in your own time zone. Your saved list of cities hasn't changed.</p>
+        <button class="btn" id="exit-shared" type="button">Back to my cities</button>
+      </div>
       <section class="panel" aria-label="Date and time">
         <div class="controls__row">
           <div class="group"><label for="date">Date</label><input id="date" type="date" /></div>
@@ -140,6 +157,10 @@
           </div>
         </div>
         <p class="note" id="dst-note" role="status"></p>
+        <div class="share">
+          <button class="btn" id="share" type="button">Copy link to this time</button>
+          <span class="note" id="share-note" role="status"></span>
+        </div>
       </section>
 
       <section class="stack" aria-labelledby="cities-title">
@@ -173,7 +194,7 @@
       </section>
     </div>
 
-    <p class="footnote">A Lab experiment, written in plain JavaScript with the browser's own time zone database through the Intl API, so offsets and daylight saving rules are as current as your browser. Working hours are 9 AM to 5 PM, Monday to Friday, in each city. Your cities and clock format are remembered in this browser. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/time-zones" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment, written in plain JavaScript with the browser's own time zone database through the Intl API, so offsets and daylight saving rules are as current as your browser. Working hours are 9 AM to 5 PM, Monday to Friday, in each city. Your cities and clock format are remembered in this browser. A shared link carries the time and cities after the <code>#</code>, the part of an address browsers never send to a server, and opens in each person's own time zone. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/time-zones" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -259,7 +280,8 @@
     let cities = [];      // { zone, label }
     let base = LOCAL;
     let hour12 = true;
-    const save = () => store.set({ cities, base, hour12 });
+    let shared = false;   // viewing someone's link: nothing is saved over the visitor's own list
+    const save = () => { if (!shared) store.set({ cities, base, hour12 }); };
 
     function loadState() {
       const saved = store.get();
@@ -275,6 +297,38 @@
         cities = [LOCAL, ...DEFAULT_OTHERS.filter((z) => z !== LOCAL)].map((zone) => ({ zone, label: cityOf(zone) }));
       }
       if (!base) base = cities[0].zone;
+    }
+
+    // Links look like #at=2026-11-23T15:00Z&c=America/Chicago&c=Asia/Kolkata|Delhi
+    function shareLink() {
+      const sel = selection();
+      if (!sel) return null;
+      const params = new URLSearchParams();
+      params.set('at', `${new Date(sel.ms).toISOString().slice(0, 16)}Z`);
+      cities.forEach((c) => params.append('c', c.label === cityOf(c.zone) ? c.zone : `${c.zone}|${c.label}`));
+      return `${location.origin}${location.pathname}#${params}`;
+    }
+
+    // Opens a shared link in the visitor's own time zone, with their zone added if it's missing
+    function loadShared() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const at = Date.parse(params.get('at') || '');
+      const seen = new Set();
+      const linked = params.getAll('c')
+        .map((entry) => {
+          const [zone, label = ''] = entry.split('|');
+          return zone && isZone(zone) ? { zone, label: label.trim() ? label.trim().slice(0, 40) : cityOf(zone) } : null;
+        })
+        .filter((c) => c && !seen.has(`${c.zone}|${c.label}`) && seen.add(`${c.zone}|${c.label}`));
+      if (!Number.isFinite(at) || !linked.length) return false;
+      if (!linked.some((c) => c.zone === LOCAL)) linked.unshift({ zone: LOCAL, label: cityOf(LOCAL) });
+      shared = true;
+      cities = linked.slice(0, MAX_CITIES);
+      base = LOCAL;
+      const p = partsOf(base, at);
+      $('date').value = `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+      $('time').value = `${pad(p.hour)}:${pad(p.minute)}`;
+      return true;
     }
 
     function resolveZone(text) {
@@ -325,6 +379,8 @@
 
     function render() {
       const sel = selection();
+      $('shared-banner').hidden = !shared;
+      $('share').disabled = !sel;
       const baseSelect = $('base');
       baseSelect.innerHTML = '';
       cities.forEach((c) => baseSelect.append(new Option(c.label === cityOf(c.zone) ? c.label : `${c.label} (${cityOf(c.zone)})`, c.zone, false, c.zone === base)));
@@ -495,7 +551,29 @@
     }
 
     // ---------- Events ----------
-    ['date', 'time'].forEach((id) => $(id).addEventListener('input', render));
+    ['date', 'time'].forEach((id) => $(id).addEventListener('input', () => { $('share-note').textContent = ''; render(); }));
+    $('share').addEventListener('click', async () => {
+      const url = shareLink();
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        $('share-note').textContent = 'Link copied. It opens at this moment in each person’s own time zone.';
+      } catch {
+        // No clipboard access: put the link in the address bar instead
+        history.replaceState(null, '', url);
+        $('share-note').textContent = 'Copy the link from the address bar.';
+      }
+    });
+    $('exit-shared').addEventListener('click', () => {
+      shared = false;
+      history.replaceState(null, '', location.pathname + location.search);
+      loadState();
+      setNow();
+      $('share-note').textContent = '';
+      render();
+      $('date').focus();
+    });
+    window.addEventListener('hashchange', () => { if (loadShared()) { $('share-note').textContent = ''; render(); } });
     $('base').addEventListener('change', () => {
       // Changing the main city keeps the same moment
       const sel = selection();
@@ -551,7 +629,7 @@
     // ---------- Start ----------
     $('zone-list').innerHTML = ZONES.map((z) => `<option value="${z}">${cityOf(z)}</option>`).join('');
     loadState();
-    setNow();
+    if (!loadShared()) setNow();
     render();
   })();
   </script>

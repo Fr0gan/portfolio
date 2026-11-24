@@ -9,7 +9,7 @@ Everything is hand-written HTML, CSS and JavaScript. There are no frameworks, li
 | Project | What it does | Highlights |
 | --- | --- | --- |
 | [Weather](https://fr0gan.github.io/portfolio/projects/weather/) | Current conditions, 24-hour and 7-day forecasts for any city | Open-Meteo APIs, accessible search combobox, geolocation |
-| [Budget Tracker](https://fr0gan.github.io/portfolio/projects/budget-tracker/) | Monthly income, spending and category budgets | `Intl` formatting, CSV export, localStorage |
+| [Budget Tracker](https://fr0gan.github.io/portfolio/projects/budget-tracker/) | Monthly income, spending and category budgets | `Intl` formatting, CSV import and export, undo, localStorage |
 | [Cedar & Cairn](https://fr0gan.github.io/portfolio/projects/cedar-and-cairn/) | Concept website for a fictional hiking outfitter | Trip filters, rental estimate calculator, validated booking form |
 | [Contrast Checker](https://fr0gan.github.io/portfolio/projects/contrast-checker/) | Checks text and background colors against WCAG 2.2 | Luminance math, suggested fixes, shareable links |
 | [Pixel Studio](https://fr0gan.github.io/portfolio/projects/pixel-studio/) | Pixel-art editor with PNG export | Flood fill, Bresenham lines, undo/redo |
