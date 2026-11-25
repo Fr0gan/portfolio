@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Use the light/dark choice saved on the homepage -->
+  <script>try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <title>Image Resizer | Logan Loftus</title>
+  <meta name="description" content="Resize and compress images to JPEG, WebP or PNG in your browser, with a live preview and file size. Nothing is uploaded." />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../projects/projects.css" />
+  <style>
+    .stack { display: grid; gap: 16px; }
+    .panel { display: grid; gap: 14px; align-content: start; }
+    .panel__title { font-family: var(--font-head); font-size: 1.15rem; }
+
+    .drop {
+      justify-items: center;
+      padding: 28px 20px;
+      border: 2px dashed var(--border-strong);
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .drop.is-dragging { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+    .drop__title { font-family: var(--font-head); font-size: 1.1rem; font-weight: 600; }
+    .drop__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .drop__hint { color: var(--muted); font-size: 0.88rem; }
+    .error { color: var(--danger); font-size: 0.92rem; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; gap: 16px; }
+    .original { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
+    .original strong { color: var(--text); font-weight: 600; }
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+    .presets button {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .presets button:hover { border-color: var(--accent); color: var(--text); }
+    .dims { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+    .group { display: grid; gap: 6px; }
+    .group label { color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+    .group input[type="number"], .group select {
+      width: 100%;
+      min-width: 0;
+      min-height: 2.65rem;
+      padding: 8px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .group input:focus, .group select:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+    .group input[aria-invalid="true"] { border-color: var(--danger); }
+    .group output { color: var(--text); font-family: var(--font-mono); }
+    .check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.92rem; cursor: pointer; }
+    .hint { color: var(--muted); font-size: 0.86rem; }
+    .hint:empty { display: none; }
+
+    .result__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    .summary { font-variant-numeric: tabular-nums; }
+    .summary .change { font-weight: 600; }
+    .summary .change.is-smaller { color: color-mix(in srgb, var(--success) 75%, var(--text)); }
+    .summary .change.is-larger { color: var(--danger); }
+    .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+    .preview {
+      display: grid;
+      place-items: center;
+      min-height: 12rem;
+      padding: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      /* Checkerboard so transparent areas are visible */
+      background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 20px 20px;
+    }
+    .preview img { display: block; max-width: 100%; max-height: 28rem; height: auto; }
+
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← Back to portfolio</a>
+    <span class="topbar__title">Lab · Image Resizer</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>Image Resizer</h1>
+      <p>Shrink a photo for email, a website or a form with an upload limit. Pick a size, a format and a quality, see the file size before you download, and nothing ever leaves your device.</p>
+    </div>
+
+    <div class="stack">
+      <section class="panel drop" id="drop" aria-label="Choose an image">
+        <p class="drop__title">Drop an image here, paste one, or</p>
+        <div class="drop__actions">
+          <button class="btn btn--primary" id="choose" type="button">Choose an image</button>
+          <button class="btn" id="sample" type="button">Try a sample</button>
+        </div>
+        <input id="file" type="file" accept="image/*" hidden />
+        <p class="drop__hint">JPEG, PNG, WebP, GIF or SVG, up to 50 MB.</p>
+        <p class="error" id="error" role="alert" hidden></p>
+      </section>
+
+      <div class="layout" id="workspace" hidden>
+        <section class="panel" aria-labelledby="settings-title">
+          <h2 class="panel__title" id="settings-title">Settings</h2>
+          <p class="original" id="original"></p>
+          <div class="presets" role="group" aria-label="Quick sizes">
+            <button type="button" data-scale="1">Original size</button>
+            <button type="button" data-scale="0.5">50%</button>
+            <button type="button" data-scale="0.25">25%</button>
+            <button type="button" data-long="1920">1920 px</button>
+            <button type="button" data-long="1280">1280 px</button>
+            <button type="button" data-long="800">800 px</button>
+          </div>
+          <div class="dims">
+            <div class="group"><label for="width">Width (px)</label><input id="width" type="number" min="1" max="8000" step="1" inputmode="numeric" /></div>
+            <div class="group"><label for="height">Height (px)</label><input id="height" type="number" min="1" max="8000" step="1" inputmode="numeric" /></div>
+          </div>
+          <label class="check"><input type="checkbox" id="keep" checked /> Keep the aspect ratio</label>
+          <div class="group">
+            <label for="format">Format</label>
+            <select id="format">
+              <option value="image/jpeg">JPEG, best for photos</option>
+              <option value="image/webp">WebP, smaller, for the web</option>
+              <option value="image/png">PNG, lossless, keeps transparency</option>
+            </select>
+          </div>
+          <div class="group" id="quality-row">
+            <label for="quality">Quality <output id="quality-value" for="quality">82</output></label>
+            <input id="quality" type="range" min="10" max="100" step="1" value="82" />
+          </div>
+          <p class="hint" id="hint"></p>
+        </section>
+
+        <section class="panel" aria-labelledby="result-title">
+          <div class="result__head">
+            <h2 class="panel__title" id="result-title">Result</h2>
+            <a class="btn btn--primary" id="download" aria-disabled="true">Download</a>
+          </div>
+          <p class="summary" id="summary" role="status"></p>
+          <div class="preview"><img id="preview" alt="Preview of the resized image" /></div>
+        </section>
+      </div>
+    </div>
+
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Images are decoded with <code>createImageBitmap</code>, scaled on a canvas in halving steps for smoother results, and saved with <code>canvas.toBlob</code>. Saving a new copy also leaves out hidden metadata, such as the GPS location some phones add to photos. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/image-resizer" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+  </main>
+
+  <script>
+  (() => {
+    const MAX_FILE = 50 * 1024 * 1024;
+    const MAX_SIDE = 8000;
+    const $ = (id) => document.getElementById(id);
+    const number = new Intl.NumberFormat('en-US');
+    const NAMES = { 'image/jpeg': 'JPEG', 'image/webp': 'WebP', 'image/png': 'PNG', 'image/gif': 'GIF', 'image/svg+xml': 'SVG' };
+    const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' };
+    const bytes = (n) => (n < 1024 ? `${n} bytes` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(2)} MB`);
+
+    let source = null;   // { bitmap, name, type, size }
+    let outputUrl = '';
+    let token = 0;
+    let timer = 0;
+
+    function showError(message) {
+      $('error').textContent = message;
+      $('error').hidden = !message;
+    }
+
+    async function loadFile(file) {
+      showError('');
+      if (!file) return;
+      if (file.type && !file.type.startsWith('image/')) {
+        showError(`${file.name} isn’t an image. Choose a JPEG, PNG, WebP, GIF or SVG file.`);
+        return;
+      }
+      if (file.size > MAX_FILE) {
+        showError(`${file.name} is ${bytes(file.size)}. Images up to 50 MB can be opened here.`);
+        return;
+      }
+      let bitmap;
+      try {
+        bitmap = await createImageBitmap(file);
+      } catch {
+        showError(`Couldn’t read ${file.name || 'that image'}. It may be damaged or in a format this browser can’t open.`);
+        return;
+      }
+      if (source) source.bitmap.close();
+      source = { bitmap, name: file.name || 'image', type: file.type, size: file.size };
+
+      $('original').innerHTML = '';
+      const strong = document.createElement('strong');
+      strong.textContent = source.name;
+      $('original').append(strong, ` · ${number.format(bitmap.width)} × ${number.format(bitmap.height)} · ${bytes(file.size)}${NAMES[file.type] ? ` · ${NAMES[file.type]}` : ''}`);
+      // Keep the format where it makes sense, otherwise JPEG; and start no larger than 1920 px
+      $('format').value = EXTENSIONS[file.type] ? file.type : 'image/jpeg';
+      const longest = Math.max(bitmap.width, bitmap.height);
+      setSize(longest > 1920 ? 1920 / longest : 1);
+      $('workspace').hidden = false;
+      update(true);
+    }
+
+    function setSize(scale) {
+      if (!source) return;
+      $('width').value = String(Math.max(1, Math.round(source.bitmap.width * scale)));
+      $('height').value = String(Math.max(1, Math.round(source.bitmap.height * scale)));
+    }
+
+    // Large reductions are done in halving steps, which keeps more detail than one big jump
+    function drawScaled(bitmap, w, h, background) {
+      let src = bitmap;
+      let sw = bitmap.width;
+      let sh = bitmap.height;
+      while (sw / 2 >= w && sh / 2 >= h) {
+        const step = document.createElement('canvas');
+        step.width = Math.max(1, Math.round(sw / 2));
+        step.height = Math.max(1, Math.round(sh / 2));
+        const sctx = step.getContext('2d');
+        sctx.imageSmoothingQuality = 'high';
+        sctx.drawImage(src, 0, 0, step.width, step.height);
+        src = step;
+        sw = step.width;
+        sh = step.height;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, w, h); }
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(src, 0, 0, w, h);
+      return canvas;
+    }
+
+    const toBlob = (canvas, type, quality) => new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+
+    function readSize() {
+      const parse = (id) => {
+        const value = Number($(id).value);
+        const ok = Number.isInteger(value) && value >= 1 && value <= MAX_SIDE;
+        $(id).setAttribute('aria-invalid', String(!ok));
+        return ok ? value : null;
+      };
+      return [parse('width'), parse('height')];
+    }
+
+    function update(immediate = false) {
+      clearTimeout(timer);
+      const type = $('format').value;
+      $('quality-row').hidden = type === 'image/png';
+      $('quality-value').textContent = $('quality').value;
+      timer = setTimeout(render, immediate ? 0 : 200);
+    }
+
+    async function render() {
+      if (!source) return;
+      const id = ++token;
+      const [w, h] = readSize();
+      const download = $('download');
+      if (!w || !h) {
+        $('summary').textContent = `Enter a width and height from 1 to ${number.format(MAX_SIDE)} pixels.`;
+        download.setAttribute('aria-disabled', 'true');
+        download.removeAttribute('href');
+        return;
+      }
+      const type = $('format').value;
+      const quality = Number($('quality').value) / 100;
+      // JPEG has no transparency, so transparent areas get a white background instead of black
+      const canvas = drawScaled(source.bitmap, w, h, type === 'image/jpeg' ? '#ffffff' : null);
+      const blob = await toBlob(canvas, type, quality);
+      if (id !== token) return;   // a newer setting has already started
+      if (!blob) {
+        $('summary').textContent = 'This image is too large for your browser to save. Try a smaller size.';
+        return;
+      }
+
+      if (outputUrl) URL.revokeObjectURL(outputUrl);
+      outputUrl = URL.createObjectURL(blob);
+      $('preview').src = outputUrl;
+      const ext = EXTENSIONS[blob.type] || 'png';
+      const base = source.name.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
+      download.href = outputUrl;
+      download.download = `${base}-${w}x${h}.${ext}`;
+      download.removeAttribute('aria-disabled');
+
+      const summary = $('summary');
+      summary.textContent = `${number.format(w)} × ${number.format(h)} · ${bytes(blob.size)} · ${NAMES[blob.type] || blob.type} · `;
+      const change = document.createElement('span');
+      const ratio = blob.size / source.size;
+      change.className = `change ${ratio <= 1 ? 'is-smaller' : 'is-larger'}`;
+      change.textContent = ratio <= 1
+        ? `${Math.round((1 - ratio) * 100)}% smaller than the original`
+        : `${Math.round((ratio - 1) * 100)}% larger than the original`;
+      summary.append(change);
+
+      const hints = [];
+      if (blob.type !== type) hints.push(`This browser can’t save ${NAMES[type]}, so the image is saved as ${NAMES[blob.type] || blob.type}.`);
+      if (w > source.bitmap.width || h > source.bitmap.height) hints.push('This is bigger than the original, so it will look softer.');
+      if (ratio > 1 && type === 'image/png') hints.push('PNG keeps every pixel exactly. For photos, JPEG or WebP is usually much smaller.');
+      else if (ratio > 1) hints.push('Try a lower quality or a smaller size.');
+      if (type === 'image/jpeg') hints.push('JPEG has no transparency, so any transparent areas become white.');
+      $('hint').textContent = hints.join(' ');
+    }
+
+    // ---------- Events ----------
+    $('choose').addEventListener('click', () => $('file').click());
+    $('file').addEventListener('change', () => {
+      loadFile($('file').files[0]);
+      $('file').value = '';
+    });
+    const drop = $('drop');
+    drop.addEventListener('dragover', (e) => {
+      if (![...e.dataTransfer.types].includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      drop.classList.add('is-dragging');
+    });
+    drop.addEventListener('dragleave', (e) => { if (!drop.contains(e.relatedTarget)) drop.classList.remove('is-dragging'); });
+    drop.addEventListener('drop', (e) => {
+      drop.classList.remove('is-dragging');
+      if (!e.dataTransfer.files.length) return;
+      e.preventDefault();
+      loadFile(e.dataTransfer.files[0]);
+    });
+    // Pasting an image anywhere on the page opens it
+    document.addEventListener('paste', (e) => {
+      const file = [...(e.clipboardData ? e.clipboardData.files : [])].find((f) => f.type.startsWith('image/'));
+      if (!file) return;
+      e.preventDefault();
+      loadFile(file);
+    });
+
+    $('width').addEventListener('input', () => {
+      const w = Number($('width').value);
+      if ($('keep').checked && source && w > 0) $('height').value = String(Math.max(1, Math.round(w * source.bitmap.height / source.bitmap.width)));
+      update();
+    });
+    $('height').addEventListener('input', () => {
+      const h = Number($('height').value);
+      if ($('keep').checked && source && h > 0) $('width').value = String(Math.max(1, Math.round(h * source.bitmap.width / source.bitmap.height)));
+      update();
+    });
+    $('keep').addEventListener('change', () => {
+      // Turning the lock back on snaps the height to the original shape
+      if ($('keep').checked && source && Number($('width').value) > 0) $('height').value = String(Math.max(1, Math.round(Number($('width').value) * source.bitmap.height / source.bitmap.width)));
+      update();
+    });
+    $('format').addEventListener('change', () => update(true));
+    $('quality').addEventListener('input', () => update());
+    document.querySelectorAll('[data-scale]').forEach((b) => b.addEventListener('click', () => { setSize(Number(b.dataset.scale)); update(true); }));
+    document.querySelectorAll('[data-long]').forEach((b) => b.addEventListener('click', () => {
+      if (!source) return;
+      setSize(Number(b.dataset.long) / Math.max(source.bitmap.width, source.bitmap.height));
+      update(true);
+    }));
+
+    // A generated landscape, so the tool can be tried without a file
+    $('sample').addEventListener('click', async () => {
+      const c = document.createElement('canvas');
+      c.width = 2400;
+      c.height = 1600;
+      const ctx = c.getContext('2d');
+      const sky = ctx.createLinearGradient(0, 0, 0, 1600);
+      sky.addColorStop(0, '#2742d6');
+      sky.addColorStop(0.55, '#f2a65a');
+      sky.addColorStop(1, '#f7d9a8');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, 2400, 1600);
+      ctx.fillStyle = '#fff3c4';
+      ctx.beginPath();
+      ctx.arc(1700, 760, 150, 0, Math.PI * 2);
+      ctx.fill();
+      [['#5a3e8c', 900, 0.0021], ['#3b2a63', 1080, 0.0034], ['#1f1838', 1260, 0.0052]].forEach(([color, base, freq], layer) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, 1600);
+        for (let x = 0; x <= 2400; x += 20) ctx.lineTo(x, base + Math.sin(x * freq + layer) * 120 + Math.sin(x * freq * 2.7) * 40);
+        ctx.lineTo(2400, 1600);
+        ctx.fill();
+      });
+      const blob = await toBlob(c, 'image/png');
+      loadFile(new File([blob], 'sample-landscape.png', { type: 'image/png' }));
+    });
+  })();
+  </script>
+</body>
+</html>
