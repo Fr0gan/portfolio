@@ -68,6 +68,8 @@
     .stats div { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
     .stats dt { color: var(--muted); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
     .stats dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+    .share-note { color: var(--muted); font-size: 0.88rem; }
     .savings {
       padding: 12px 14px;
       border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border));
@@ -168,6 +170,10 @@
           <div><dt>Paid off</dt><dd id="payoff">—</dd></div>
         </dl>
         <p class="savings" id="savings" hidden></p>
+        <div class="share">
+          <button class="btn" id="share" type="button">Copy link to these numbers</button>
+          <span class="share-note" id="share-note" role="status"></span>
+        </div>
       </section>
     </div>
 
@@ -189,7 +195,7 @@
       </div>
     </section>
 
-    <p class="footnote">A Lab experiment, written in plain JavaScript. Uses the standard fixed-rate formula with the APR divided by 12 for the monthly rate. Every month's interest is rounded to the cent and the last payment absorbs any rounding, as lenders do, so the schedule adds up exactly. Extra payments go straight to principal. Estimates only: taxes, insurance, PMI and fees aren't included. Your numbers are remembered in this browser and never sent anywhere. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/loan-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment, written in plain JavaScript. Uses the standard fixed-rate formula with the APR divided by 12 for the monthly rate. Every month's interest is rounded to the cent and the last payment absorbs any rounding, as lenders do, so the schedule adds up exactly. Extra payments go straight to principal. Estimates only: taxes, insurance, PMI and fees aren't included. Your numbers are remembered in this browser and never sent anywhere. A shared link carries them after the <code>#</code>, the part of an address browsers don't send to a server. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/loan-calculator" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -285,11 +291,13 @@
         $('savings').hidden = true;
         $('rows').textContent = '';
         $('csv').disabled = true;
+        $('share').disabled = true;
         current = null;
         return;
       }
       $('error').hidden = true;
       $('csv').disabled = false;
+      $('share').disabled = false;
 
       const principal = Math.round(input.amount * 100);
       const monthlyRate = input.rate / 100 / 12;
@@ -404,15 +412,58 @@
     }));
     $('csv').addEventListener('click', downloadCsv);
 
-    // Start with the last numbers used here, or a typical mortgage
-    const saved = store.get();
+    // Share links carry the numbers after the #, e.g. #amount=300000&rate=6.5&term=30&unit=years
+    function shareLink() {
+      const params = new URLSearchParams();
+      params.set('amount', $('amount').value.replace(/[$,\s]/g, ''));
+      params.set('rate', $('rate').value.replace(/[%\s]/g, ''));
+      params.set('term', $('term').value.trim());
+      params.set('unit', $('term-unit').value);
+      if (/^\d{4}-\d{2}$/.test($('start').value)) params.set('start', $('start').value);
+      const extra = $('extra').value.replace(/[$,\s]/g, '');
+      if (extra && Number(extra) > 0) params.set('extra', extra);
+      return `${location.origin}${location.pathname}#${params}`;
+    }
+    // Returns true when the address held shared numbers. Bad values show the usual errors.
+    function loadLink() {
+      const params = new URLSearchParams(location.hash.slice(1));
+      if (!params.has('amount') || !params.has('rate') || !params.has('term')) return false;
+      const text = (key) => (params.get(key) || '').slice(0, 20);
+      const amount = text('amount');
+      $('amount').value = /^\d+(\.\d+)?$/.test(amount) ? number.format(Number(amount)) : amount;
+      $('rate').value = text('rate');
+      $('term').value = text('term');
+      $('term-unit').value = params.get('unit') === 'months' ? 'months' : 'years';
+      if (/^\d{4}-\d{2}$/.test(params.get('start') || '')) $('start').value = params.get('start');
+      $('extra').value = text('extra');
+      return true;
+    }
+    $('share').addEventListener('click', async () => {
+      const url = shareLink();
+      try {
+        await navigator.clipboard.writeText(url);
+        $('share-note').textContent = 'Link copied.';
+      } catch {
+        // No clipboard access: put the link in the address bar instead
+        history.replaceState(null, '', url);
+        $('share-note').textContent = 'Copy the link from the address bar.';
+      }
+    });
+    ['amount', 'rate', 'term', 'extra', 'start', 'term-unit'].forEach((id) => $(id).addEventListener('input', () => { $('share-note').textContent = ''; }));
+    window.addEventListener('hashchange', () => { if (loadLink()) { $('share-note').textContent = ''; update(); } });
+
+    // Start with a shared link, the last numbers used here, or a typical mortgage
     const next = nextMonth();
-    $('amount').value = saved ? saved.amount : '300,000';
-    $('rate').value = saved ? saved.rate : '6.5';
-    $('term').value = saved ? saved.term : '30';
-    $('term-unit').value = saved && saved.unit === 'months' ? 'months' : 'years';
-    $('start').value = saved && saved.start ? saved.start : `${next.year}-${String(next.month).padStart(2, '0')}`;
-    $('extra').value = saved ? saved.extra : '';
+    $('start').value = `${next.year}-${String(next.month).padStart(2, '0')}`;
+    if (!loadLink()) {
+      const saved = store.get();
+      $('amount').value = saved ? saved.amount : '300,000';
+      $('rate').value = saved ? saved.rate : '6.5';
+      $('term').value = saved ? saved.term : '30';
+      $('term-unit').value = saved && saved.unit === 'months' ? 'months' : 'years';
+      if (saved && saved.start) $('start').value = saved.start;
+      $('extra').value = saved ? saved.extra : '';
+    }
     update();
   })();
   </script>

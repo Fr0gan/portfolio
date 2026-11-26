@@ -51,6 +51,31 @@
     .controls .btn--primary { min-width: 120px; }
     .message { min-height: 1.6em; color: var(--muted); text-align: center; }
 
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .week { display: grid; gap: 12px; margin-top: 16px; }
+    .week__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+    .week__title { font-family: var(--font-head); font-size: 1.05rem; }
+    .week__total { color: var(--muted); font-size: 0.9rem; }
+    .week__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; list-style: none; }
+    .day {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      padding: 8px 2px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .day.is-today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .day__name { color: var(--muted); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .day__minutes { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+    .day__sessions { color: var(--muted); font-size: 0.75rem; }
+    .day.is-empty .day__minutes { color: var(--muted); font-weight: 400; }
+    @media (max-width: 420px) {
+      .week__days { gap: 4px; }
+      .day__minutes { font-size: 0.8rem; }
+    }
+
     .settings { margin-top: 16px; }
     .settings summary { font-family: var(--font-head); font-size: 1.05rem; font-weight: 600; cursor: pointer; }
     .settings__grid {
@@ -120,6 +145,14 @@
       <div class="stat"><span class="stat__label">Long break in</span><span class="stat__value" id="stat-until">4 sessions</span></div>
     </div>
 
+    <section class="panel week" aria-labelledby="week-title">
+      <div class="week__head">
+        <h2 class="week__title" id="week-title">Last 7 days</h2>
+        <p class="week__total" id="week-total"></p>
+      </div>
+      <ol class="week__days" id="week-days"></ol>
+    </section>
+
     <details class="panel settings">
       <summary>Settings</summary>
       <div class="settings__grid">
@@ -133,7 +166,7 @@
       </div>
     </details>
 
-    <p class="footnote">A Lab experiment. Timing is based on timestamps rather than counting ticks, so background tabs don't drift. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/focus-timer" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
+    <p class="footnote">A Lab experiment. Timing is based on timestamps rather than counting ticks, so background tabs don't drift. Finished sessions are kept in this browser for 90 days. <a href="https://github.com/Fr0gan/portfolio/tree/main/lab/focus-timer" target="_blank" rel="noopener">View source</a> · <a href="../index.html">More Lab experiments</a></p>
   </main>
 
   <script>
@@ -166,6 +199,32 @@
 
     let settings = { ...DEFAULTS, ...(store.get(SETTINGS_KEY) || {}) };
     let stats = store.get(STATS_KEY);
+
+    // Finished focus sessions per day, so earlier days aren't lost when the date changes
+    const HISTORY_KEY = 'focus-timer-history';
+    const HISTORY_DAYS = 90;
+    const isDayKey = (key) => /^\d{4}-\d{2}-\d{2}$/.test(key);
+    let history = {};
+    const savedHistory = store.get(HISTORY_KEY);
+    if (savedHistory && typeof savedHistory === 'object') {
+      Object.entries(savedHistory).forEach(([day, value]) => {
+        if (isDayKey(day) && value && Number.isFinite(value.sessions) && Number.isFinite(value.minutes)) history[day] = { sessions: value.sessions, minutes: value.minutes };
+      });
+    }
+    // Days recorded before the history existed are kept too
+    if (stats && isDayKey(stats.date) && stats.sessions > 0 && !history[stats.date]) {
+      history[stats.date] = { sessions: stats.sessions, minutes: stats.minutes };
+      store.set(HISTORY_KEY, history);
+    }
+    function recordToday() {
+      history[stats.date] = { sessions: stats.sessions, minutes: stats.minutes };
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - HISTORY_DAYS);
+      const oldest = `${cutoff.getFullYear()}-${pad(cutoff.getMonth() + 1)}-${pad(cutoff.getDate())}`;
+      Object.keys(history).forEach((day) => { if (day < oldest) delete history[day]; });
+      store.set(HISTORY_KEY, history);
+    }
+
     if (!stats || stats.date !== todayKey()) stats = { date: todayKey(), sessions: 0, minutes: 0, streak: 0 };
 
     let mode = 'focus';
@@ -199,6 +258,55 @@
       $('stat-minutes').textContent = stats.minutes >= 60 ? `${Math.floor(stats.minutes / 60)} h ${stats.minutes % 60} min` : `${stats.minutes} min`;
       const until = settings.every - (stats.streak % settings.every);
       $('stat-until').textContent = `${until} ${until === 1 ? 'session' : 'sessions'}`;
+      renderWeek();
+    }
+
+    const shortMinutes = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);
+    const longMinutes = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
+    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+    const fullDay = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    let weekShown = '';
+    function renderWeek() {
+      const days = [];
+      for (let i = 6; i >= 0; i -= 1) {
+        const d = new Date();
+        d.setHours(12, 0, 0, 0);
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const entry = key === stats.date ? stats : history[key] || { sessions: 0, minutes: 0 };
+        days.push({ d, key, sessions: entry.sessions, minutes: entry.minutes, today: i === 0 });
+      }
+      // The timer renders four times a second, so only rebuild when something changed
+      const signature = days.map((day) => `${day.key}:${day.sessions}:${day.minutes}`).join('|');
+      if (signature === weekShown) return;
+      weekShown = signature;
+      const list = $('week-days');
+      list.textContent = '';
+      days.forEach((day) => {
+        const li = document.createElement('li');
+        li.className = `day${day.today ? ' is-today' : ''}${day.sessions ? '' : ' is-empty'}`;
+        const label = document.createElement('span');
+        label.className = 'sr-only';
+        label.textContent = `${day.today ? 'Today, ' : ''}${fullDay.format(day.d)}: ${longMinutes(day.minutes)} in ${day.sessions} ${day.sessions === 1 ? 'session' : 'sessions'}`;
+        const parts = [
+          ['day__name', dayName.format(day.d)],
+          ['day__minutes', shortMinutes(day.minutes)],
+          ['day__sessions', `${day.sessions}×`],
+        ].map(([className, text]) => {
+          const span = document.createElement('span');
+          span.className = className;
+          span.setAttribute('aria-hidden', 'true');
+          span.textContent = text;
+          return span;
+        });
+        li.append(label, ...parts);
+        list.append(li);
+      });
+      const sessions = days.reduce((sum, day) => sum + day.sessions, 0);
+      const minutes = days.reduce((sum, day) => sum + day.minutes, 0);
+      $('week-total').textContent = sessions
+        ? `${sessions} ${sessions === 1 ? 'session' : 'sessions'} · ${longMinutes(minutes)} of focus`
+        : 'No finished sessions yet';
     }
 
     function tick() {
@@ -265,6 +373,7 @@
         stats.minutes += settings.focus;
         stats.streak += 1;
         store.set(STATS_KEY, stats);
+        recordToday();
         const longNext = stats.streak % settings.every === 0;
         notify('Focus session complete', longNext ? 'You earned a long break.' : 'Time for a short break.');
         setMode(longNext ? 'long' : 'short', longNext
