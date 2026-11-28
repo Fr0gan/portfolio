@@ -21,6 +21,8 @@
     .not-found__lead { max-width: 56ch; color: var(--muted); font-size: 1.15rem; }
     .not-found__lead:empty { display: none; }
     .not-found__note { max-width: 56ch; margin-top: 12px; color: var(--text); }
+    .not-found__suggest { margin-top: 18px; font-size: 1.15rem; font-weight: 500; }
+    .not-found__suggest a { color: var(--accent); text-underline-offset: 4px; }
     .not-found .intro__actions { margin-top: 28px; }
     .not-found__list { display: grid; gap: 6px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); list-style: none; }
     .not-found__list a { color: var(--accent); text-decoration: none; }
@@ -40,9 +42,11 @@
       <h1>Page not found</h1>
       <p class="not-found__lead">The page you're looking for doesn't exist or has moved. Here are some places to go instead.</p>
       <p class="not-found__note" id="retired" hidden>This project has been retired. Its source is still available in the repository's history on GitHub.</p>
+      <p class="not-found__suggest" id="suggest" hidden>Did you mean <a id="suggest-link" href="/portfolio/"></a>?</p>
       <div class="intro__actions">
         <a class="btn btn--primary" href="/portfolio/">Go to the homepage</a>
         <a class="btn" href="/portfolio/#projects">See all projects</a>
+        <a class="btn" href="/portfolio/lab/">Browse the Lab</a>
       </div>
       <ul class="not-found__list" aria-label="Current projects">
         <li><a href="/portfolio/projects/weather/">Weather</a></li>
@@ -59,6 +63,54 @@
     // Old links to the retired browser games get a specific explanation
     if (/\/projects\/(slime-blaster|samurai-duel|memory-match)(\/|$)/.test(location.pathname)) {
       document.getElementById('retired').hidden = false;
+    } else {
+      suggest();
+    }
+
+    // Suggests the page the address was probably meant to be, for typos like /lab/regex-test/.
+    // Lab pages come from the live Lab list, so new experiments are covered without changes here.
+    async function suggest() {
+      const clean = (path) => decodeURIComponent(path).toLowerCase()
+        .replace(/^\/portfolio\//, '').replace(/index\.html$/, '').replace(/\.html$/, '').replace(/^\/+|\/+$/g, '');
+      const wanted = clean(location.pathname);
+      if (!wanted) return;
+      const pages = [...document.querySelectorAll('.not-found__list a')].map((a) => ({ name: a.textContent, href: a.getAttribute('href') }));
+      pages.push({ name: 'the Lab', href: '/portfolio/lab/' });
+      try {
+        const response = await fetch('/portfolio/lab/index.html');
+        if (response.ok) {
+          const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+          doc.querySelectorAll('.experiment h2 a').forEach((a) => {
+            pages.push({ name: a.textContent, href: `/portfolio/lab/${a.getAttribute('href').replace(/index\.html$/, '')}` });
+          });
+        }
+      } catch { /* offline: projects only */ }
+
+      // Edit distance between two strings
+      const distance = (a, b) => {
+        let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+        for (let i = 1; i <= a.length; i += 1) {
+          const row = [i];
+          for (let j = 1; j <= b.length; j += 1) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+          prev = row;
+        }
+        return prev[b.length];
+      };
+      const last = (path) => path.split('/').pop();
+      let best = null;
+      pages.forEach((page) => {
+        const target = clean(page.href);
+        if (!target) return;
+        // Compare the whole path, and the last part on its own for links with the wrong folder
+        const score = Math.min(distance(wanted, target), distance(last(wanted), last(target)));
+        const allowed = Math.max(2, Math.floor(last(target).length / 3));
+        if (score <= allowed && (!best || score < best.score)) best = { ...page, score };
+      });
+      if (!best) return;
+      const link = document.getElementById('suggest-link');
+      link.href = best.href;
+      link.textContent = best.name;
+      document.getElementById('suggest').hidden = false;
     }
   </script>
 </body>
